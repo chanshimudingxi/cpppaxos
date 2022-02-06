@@ -8,50 +8,48 @@ Learner::Learner( const Messenger& messenger, int quorumSize )
 
 bool Learner::isComplete() 
 {
+	//议题值已经达成最终一致，说明整个状态机已经可以结束了
     return !m_finalValue.empty();
 }
 
 void Learner::receiveAccepted(const std::string& fromUID, const ProposalID& proposalID, const std::string& acceptedValue) 
 {
+	//状态机已经结束
     if (isComplete())
         return;
 
-    std::map<std::string,  ProposalID>::iterator itr= m_acceptors.find(fromUID);
-    if(itr != m_acceptors.end())
-    {
-        ProposalID oldPID = itr->second;
-        if(!proposalID.operator>(oldPID))
-        {
-            return;
-        }
-    }
-    
-    m_acceptors.insert<std::string,  ProposalID>(fromUID, proposalID);
+	//Acceptor的新议题的编号小于等于老议题编号，直接丢弃accept请求
+	ProposalID oldPID = m_acceptors[fromUID];
+	if(oldPID.isValid() && !proposalID.operator>(oldPID))
+	{
+		return;
+	}
 
-    if (itr != m_acceptors.end()) 
+    //记录Acceptor批准的新的议题状态
+    m_acceptors[fromUID] = proposalID;
+
+    if (oldPID.isValid())
     {
-        ProposalID oldPID = itr->second;
-        std::map<ProposalID, InnerProposal>::iterator itr2 = m_proposals.find(oldPID);
-        if(itr2 != m_proposals.end())
-        {
-            InnerProposal oldProposal = itr2->second;
-            oldProposal.retentionCount -= 1;
-            if (oldProposal.retentionCount == 0)
-                m_proposals.erase(oldPID);
-        }
+		Proposal& oldProposal = m_proposals[oldPID];
+		//老议题已经少了一个Acceptor批准
+		oldProposal.m_retentionCount -= 1;
+		if (oldProposal.m_retentionCount == 0)
+		{
+			m_proposals.erase(oldPID);
+		}
     }
     
+	//Proposal中没有这个议题
     if (m_proposals.find(proposalID) == m_proposals.end())
     {
-        m_proposals.insert<ProposalID, InnerProposal>(proposalID, InnerProposal(0, 0, acceptedValue));
-    }
+        m_proposals.insert<ProposalID, Proposal>(proposalID, Proposal(0, 0, acceptedValue));
+	}
 
-    InnerProposal& thisProposal = m_proposals[proposalID];	
-    
-    thisProposal.acceptCount    += 1;
-    thisProposal.retentionCount += 1;
-    
-    if (thisProposal.acceptCount == m_quorumSize) 
+    Proposal& thisProposal = m_proposals[proposalID];	    
+    thisProposal.m_acceptCount    += 1;
+    thisProposal.m_retentionCount += 1;
+	//批准个数满足大多数的条件
+    if (thisProposal.m_acceptCount == m_quorumSize) 
     {
         m_finalProposalID = proposalID;
         m_finalValue      = acceptedValue;

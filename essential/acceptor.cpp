@@ -1,4 +1,5 @@
 #include "accepter.h"
+#include "proposal_id.h"
 
 Acceptor::Acceptor(const Messenger& messenger)
 {
@@ -20,7 +21,7 @@ void Acceptor::receivePrepare(const std::string& fromUID, const ProposalID& prop
 
 void Acceptor::receiveAcceptRequest(const std::string& fromUID, const ProposalID& proposalID, const std::string& value) 
 {
-    if (!promisedID.isValid() || 
+    if (!m_promisedID.isValid() || 
         proposalID.operator>(m_promisedID) || 
         proposalID.operator==(m_promisedID) ) 
     {

@@ -7,14 +7,16 @@ class ProposalID
 public:
     ProposalID();
     ProposalID(int number, std::string uid);
+	ProposalID& operator=(const ProposalID& id);
     ~ProposalID();
+
     bool isValid();
     int getNumber();
     void setNumber(int number);
     void incrementNumber();
     std::string getUID();
-    int compare(const ProposalID& id);
-    ProposalID& operator=(const ProposalID& id);
+
+    int compare(const ProposalID& id);    
     bool operator>(const ProposalID& id);
     bool operator<(const ProposalID& id);
     bool operator==(const ProposalID& id);
