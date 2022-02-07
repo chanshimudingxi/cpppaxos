@@ -1,6 +1,6 @@
 #pragma once
 
-#include "proposal_id.h"
+#include "proposalid.h"
 #include "messenger.h"
 
 #include <string>
@@ -27,8 +27,7 @@ public:
      *@prevAcceptedID 最大批准议题编号
      *@prevAcceptedValue 最大批准议题编号对应的议题值
      */
-    void receivePromise(const std::string& fromUID, const ProposalID& proposalID, 
-        const ProposalID& prevAcceptedID, const std::string& prevAcceptedValue);
+    void receivePromise(const std::string& fromUID, const ProposalID& proposalID, const ProposalID& prevAcceptedID, const std::string& prevAcceptedValue);
 
     Messenger getMessenger();
     std::string getProposerUID();
@@ -37,6 +36,17 @@ public:
     std::string getProposedValue();
     ProposalID getLastAcceptedID();
     int numPromises();
+
+	void setProposal(const std::string& value);
+	void prepare(bool incrementProposalNumber);
+	void observeProposal(const std::string& fromUID, const ProposalID& proposalID);
+	void receivePrepareNACK(const std::string& proposerUID, const ProposalID& proposalID, const ProposalID& promisedID);
+	void receiveAcceptNACK(const std::string& proposerUID, const ProposalID& proposalID, const ProposalID& promisedID);
+	void resendAccept();
+	bool isLeader();
+	void setLeader(bool leader);
+	bool isActive();
+	void setActive(bool active);
 private:
     Messenger m_messenger;
     std::string m_proposerUID;
@@ -45,4 +55,7 @@ private:
     std::string m_proposedValue;    //Proposer提出议题的议题值（可以使Acceptor返回的最近被批准的议题值）
     ProposalID m_lastAcceptedID;    //最近被批准的议题编号
     std::set<std::string> m_promisesReceived;   //prepare请求响应者Acceptor的ID
+
+	bool m_leader;
+	bool m_active;
 };

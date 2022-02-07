@@ -1,4 +1,4 @@
-#include "proposal_id.h"
+#include "proposalid.h"
 
 ProposalID::ProposalID()
 {

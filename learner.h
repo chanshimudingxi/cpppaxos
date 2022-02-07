@@ -1,6 +1,6 @@
 #pragma once
 
-#include "proposal_id.h"
+#include "proposalid.h"
 #include "messenger.h"
 
 #include <string>

@@ -141,3 +141,341 @@ bool Node::HandleTestMessage(std::shared_ptr<TestMessage> pMsg, SocketBase* s){
 		pMsg->m_uid, pMsg->m_text.c_str(), pMsg->m_fvalue, pMsg->m_dvalue);
 	return true;
 }
+
+
+
+	
+PaxosNode::PaxosNode(Messenger messenger, String proposerUID, int quorumSize) 
+{
+	m_proposer = new PracticalProposerImpl(messenger, proposerUID, quorumSize);
+	m_acceptor = new PracticalAcceptorImpl(messenger);
+	m_learner  = new EssentialLearnerImpl(messenger, quorumSize);
+}
+	
+boolean PaxosNode::isActive() 
+{
+	return proposer.isActive();
+}
+
+void PaxosNode::setActive(boolean active) {
+	proposer.setActive(active);
+	acceptor.setActive(active);
+}
+
+//-------------------------------------------------------------------------
+// Learner
+//
+boolean PaxosNode::isComplete() 
+{
+	return learner.isComplete();
+}
+
+void PaxosNode::receiveAccepted(String fromUID, ProposalID proposalID,Object acceptedValue) 
+{
+	learner.receiveAccepted(fromUID, proposalID, acceptedValue);
+
+}
+
+Object PaxosNode::getFinalValue() 
+{
+	return learner.getFinalValue();
+}
+
+ProposalID PaxosNode::getFinalProposalID() 
+{
+	return learner.getFinalProposalID();
+}
+
+//-------------------------------------------------------------------------
+// Acceptor
+//
+void PaxosNode::receivePrepare(String fromUID, ProposalID proposalID) 
+{
+	acceptor.receivePrepare(fromUID, proposalID);
+}
+
+void PaxosNode::receiveAcceptRequest(String fromUID, ProposalID proposalID,Object value) 
+{
+	acceptor.receiveAcceptRequest(fromUID, proposalID, value);
+}
+
+ProposalID PaxosNode::getPromisedID() 
+{
+	return acceptor.getPromisedID();
+}
+
+ProposalID PaxosNode::getAcceptedID() 
+{
+	return acceptor.getAcceptedID();
+}
+
+Object PaxosNode::getAcceptedValue() 
+{
+	return acceptor.getAcceptedValue();
+}
+
+boolean PaxosNode::persistenceRequired() 
+{
+	return acceptor.persistenceRequired();
+}
+
+void PaxosNode::recover(ProposalID promisedID, ProposalID acceptedID, Object acceptedValue){
+	acceptor.recover(promisedID, acceptedID, acceptedValue);
+}
+
+void PaxosNode::persisted() 
+{
+	acceptor.persisted();
+}
+
+//-------------------------------------------------------------------------
+// Proposer
+//
+void PaxosNode::setProposal(Object value)
+{
+	proposer.setProposal(value);
+}
+
+void PaxosNode::prepare() 
+{
+	proposer.prepare();
+}
+
+void PaxosNode::prepare( boolean incrementProposalNumber ) 
+{
+	proposer.prepare(incrementProposalNumber);
+}
+
+void PaxosNode::receivePromise(String fromUID, ProposalID proposalID, ProposalID prevAcceptedID, Object prevAcceptedValue) 
+{
+	proposer.receivePromise(fromUID, proposalID, prevAcceptedID, prevAcceptedValue);
+}
+
+PracticalMessenger PaxosNode::getMessenger() 
+{
+	return proposer.getMessenger();
+}
+
+String PaxosNode::getProposerUID() 
+{
+	return proposer.getProposerUID();
+}
+
+int PaxosNode::getQuorumSize() 
+{
+	return proposer.getQuorumSize();
+}
+
+ProposalID PaxosNode::getProposalID() 
+{
+	return proposer.getProposalID();
+}
+
+Object PaxosNode::getProposedValue() 
+{
+	return proposer.getProposedValue();
+}
+
+ProposalID PaxosNode::getLastAcceptedID() 
+{
+	return proposer.getLastAcceptedID();
+}
+
+int PaxosNode::numPromises() 
+{
+	return proposer.numPromises();
+}
+
+void PaxosNode::observeProposal(String fromUID, ProposalID proposalID) 
+{
+	proposer.observeProposal(fromUID, proposalID);
+}
+
+void PaxosNode::receivePrepareNACK(String proposerUID, ProposalID proposalID, ProposalID promisedID) 
+{
+	proposer.receivePrepareNACK(proposerUID, proposalID, promisedID);
+}
+
+void PaxosNode::receiveAcceptNACK(String proposerUID, ProposalID proposalID, ProposalID promisedID) 
+{
+	proposer.receiveAcceptNACK(proposerUID, proposalID, promisedID);
+}
+
+void PaxosNode::resendAccept() 
+{
+	proposer.resendAccept();
+}
+
+boolean PaxosNode::isLeader() 
+{
+	return proposer.isLeader();
+}
+
+void PaxosNode::setLeader(boolean leader)
+{
+	proposer.setLeader(leader);
+}
+
+PaxosNode::HeartbeatNode(HeartbeatMessenger messenger, String proposerUID, int quorumSize, String leaderUID, int heartbeatPeriod, int livenessWindow) 
+{
+	super(messenger, proposerUID, quorumSize);
+	
+	this.messenger       = messenger;
+	this.leaderUID       = leaderUID;
+	this.heartbeatPeriod = heartbeatPeriod;
+	this.livenessWindow  = livenessWindow;
+	
+	leaderProposalID       = null;
+	lastHeartbeatTimestamp = timestamp();
+	lastPrepareTimestamp   = timestamp();
+	
+	if (leaderUID != null && proposerUID.equals(leaderUID))
+		setLeader(true);
+}
+
+long PaxosNode::timestamp() 
+{
+	return System.currentTimeMillis();
+}
+
+String PaxosNode::getLeaderUID() 
+{
+	return leaderUID;
+}
+
+ProposalID PaxosNode::getLeaderProposalID() 
+{
+	return leaderProposalID;
+}
+
+void PaxosNode::setLeaderProposalID( ProposalID newLeaderID ) 
+{
+	leaderProposalID = newLeaderID;
+}
+
+boolean PaxosNode::isAcquiringLeadership() 
+{
+	return acquiringLeadership;
+}
+
+void PaxosNode::prepare(boolean incrementProposalNumber) 
+{
+	if (incrementProposalNumber)
+		acceptNACKs.clear();
+	super.prepare(incrementProposalNumber);
+}
+
+boolean PaxosNode::leaderIsAlive() 
+{
+	return timestamp() - lastHeartbeatTimestamp <= livenessWindow;
+}
+
+boolean PaxosNode::observedRecentPrepare()
+{
+	return timestamp() - lastPrepareTimestamp <= livenessWindow * 1.5;
+}
+
+void PaxosNode::pollLiveness() 
+{
+	if (!leaderIsAlive() && !observedRecentPrepare()) {
+		if (acquiringLeadership)
+			prepare();
+		else
+			acquireLeadership();
+	}
+}
+
+void PaxosNode::receiveHeartbeat(String fromUID, ProposalID proposalID) 
+{
+	
+	if (leaderProposalID == null || proposalID.isGreaterThan(leaderProposalID)) {
+		acquiringLeadership = false;
+		String oldLeaderUID = leaderUID;
+		
+		leaderUID        = fromUID;
+		leaderProposalID = proposalID;
+		
+		if (isLeader() && !fromUID.equals(getProposerUID())) {
+			setLeader(false);
+			messenger.onLeadershipLost();
+			observeProposal(fromUID, proposalID);
+		}
+		
+		messenger.onLeadershipChange(oldLeaderUID, fromUID);
+	}
+	
+	if (leaderProposalID != null && leaderProposalID.equals(proposalID))
+		lastHeartbeatTimestamp = timestamp();
+}
+
+void PaxosNode::pulse() 
+{
+	if (isLeader()) {
+		receiveHeartbeat(getProposerUID(), getProposalID());
+		messenger.sendHeartbeat(getProposalID());
+		messenger.schedule(heartbeatPeriod, new HeartbeatCallback () { 
+			void execute() { pulse(); }
+		});
+	}
+}
+
+void PaxosNode::acquireLeadership() 
+{
+	if (leaderIsAlive())
+		acquiringLeadership = false;
+	else {
+		acquiringLeadership = true;
+		prepare();
+	}
+}
+
+void PaxosNode::receivePrepare(String fromUID, ProposalID proposalID) 
+{
+	super.receivePrepare(fromUID, proposalID);
+	if (!proposalID.equals(getProposalID()))
+		lastPrepareTimestamp = timestamp();
+}
+
+void PaxosNode::receivePromise(String fromUID, ProposalID proposalID, ProposalID prevAcceptedID, Object prevAcceptedValue)
+{
+	String preLeaderUID = leaderUID;
+	
+	super.receivePromise(fromUID, proposalID, prevAcceptedID, prevAcceptedValue);
+	
+	if (preLeaderUID == null && isLeader()) {
+		String oldLeaderUID = getProposerUID();
+		
+		leaderUID           = getProposerUID();
+		leaderProposalID    = getProposalID();
+		acquiringLeadership = false;
+		
+		pulse();
+		
+		messenger.onLeadershipChange(oldLeaderUID, leaderUID);
+	}
+}
+
+void PaxosNode::receivePrepareNACK(String proposerUID, ProposalID proposalID, ProposalID promisedID) 
+{
+	super.receivePrepareNACK(proposerUID, proposalID, promisedID);
+	
+	if (acquiringLeadership)
+		prepare();
+}
+
+void PaxosNode::receiveAcceptNACK(String proposerUID, ProposalID proposalID, ProposalID promisedID) 
+{
+	super.receiveAcceptNACK(proposerUID, proposalID, promisedID);
+	
+	if (proposalID.equals(getProposalID()))
+		acceptNACKs.add(proposerUID);
+	
+	if (isLeader() && acceptNACKs.size() >= getQuorumSize()) {
+		setLeader(false);
+		leaderUID        = null;
+		leaderProposalID = null;
+		messenger.onLeadershipLost();
+		messenger.onLeadershipChange(getProposerUID(), null);
+		observeProposal(proposerUID, proposalID);
+	}
+}

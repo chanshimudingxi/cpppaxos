@@ -1,5 +1,4 @@
-#ifndef NODE_H_
-#define NODE_H_
+#pragma once
 
 #include <cstring>
 #include <iostream>
@@ -16,6 +15,12 @@
 #include "sys/log.h"
 #include "proto/common_proto_parser.h"
 #include "proto/test_message.h"
+
+#include "messenger.h"
+#include "acceptor.h"
+#include "proposalid.h"
+#include "proposer.h"
+#include "learner.h"
 
 #include "client.h"
 
@@ -39,4 +44,25 @@ private:
 	std::list<Client> m_clients;
 };
 
-#endif
+
+class PaxosNode : public Node
+{
+public:
+
+private:
+	//节点可以同时具备Proposer、Acceptor、Learner三种系统角色的功能
+	Proposer m_proposer;
+	Acceptor m_acceptor;
+	Learner  m_learner;
+
+	Messenger m_messenger;
+	std::string	m_leaderUID;
+	ProposalID	m_leaderProposalID;
+	long	m_lastHeartbeatTimestamp;
+	long	m_lastPrepareTimestamp;
+	long	m_heartbeatPeriod         = 1000; // Milliseconds
+	long	m_livenessWindow          = 5000; // Milliseconds
+	bool	m_acquiringLeadership     = false;
+	std::set<std::string>	m_acceptNACKs;
+}
+

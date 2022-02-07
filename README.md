@@ -1,4 +1,7 @@
 ## 项目简介
 
 ### 基本功能
-paxos协议实现
+paxos共识算法的cpp实现
+
+### 目的
+主要是参考https://github.com/cocagne/paxos的java源码按照自我认知重新梳理和改造，加深对paxos共识算法的理解
