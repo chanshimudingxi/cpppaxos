@@ -1,5 +1,7 @@
 #include "node.h"
 
+#include <time.h>
+
 Node::Node(const Messenger& messenger, const std::string& proposerUID, int quorumSize, const std::string& leaderUID, 
 	int heartbeatPeriod, int livenessWindow): Paxos(messenger, proposerUID, quorumSize)
 {
@@ -19,7 +21,12 @@ Node::Node(const Messenger& messenger, const std::string& proposerUID, int quoru
 
 long Node::timestamp() 
 {
-	return (long)Util::GetMonoTimeMs();
+	struct timespec time;
+	clock_gettime(CLOCK_MONOTONIC, &time);
+	uint64_t utime = (uint64_t)time.tv_sec * 1000;
+	utime += time.tv_nsec/1000000;
+
+	return  utime;
 }
 
 std::string Node::getLeaderUID()
@@ -72,7 +79,6 @@ void Node::pollLiveness()
 
 void Node::receiveHeartbeat(const std::string& fromUID, const ProposalID& proposalID)
 {
-	
 	if (!m_leaderProposalID.isValid() || proposalID.isGreaterThan(m_leaderProposalID)) {
 		m_acquiringLeadership = false;
 		std::string oldLeaderUID = m_leaderUID;
@@ -95,10 +101,10 @@ void Node::receiveHeartbeat(const std::string& fromUID, const ProposalID& propos
 
 void Node::pulse()
 {
-	if (isLeader()) {
+	if (isLeader()) 
+	{
 		receiveHeartbeat(getProposerUID(), getProposalID());
 		m_messenger.sendHeartbeat(getProposalID());
-		m_messenger.schedule(m_heartbeatPeriod, new HeartbeatCallback (){ void execute() { pulse();}});
 	}
 }
 
@@ -106,7 +112,8 @@ void Node::acquireLeadership()
 {
 	if (leaderIsAlive())
 		m_acquiringLeadership = false;
-	else {
+	else 
+	{
 		m_acquiringLeadership = true;
 		prepare();
 	}

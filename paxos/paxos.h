@@ -21,7 +21,7 @@ public:
 	std::string getFinalValue();
 	ProposalID getFinalProposalID();
 	//acceptor
-	void receivePrepare(const std::string& fromUID, const ProposalID& proposalID);
+	virtual void receivePrepare(const std::string& fromUID, const ProposalID& proposalID);
 	void receiveAcceptRequest(const std::string& fromUID, const ProposalID& proposalID, const std::string& value);
 	ProposalID getPromisedID();
 	ProposalID getAcceptedID(); 
@@ -33,7 +33,7 @@ public:
 	void setProposal(const std::string& value);
 	virtual void prepare();
 	virtual void prepare(bool incrementProposalNumber);
-	void receivePromise(const std::string& fromUID, const ProposalID& proposalID, const ProposalID& prevAcceptedID, const std::string& prevAcceptedValue); 
+	virtual void receivePromise(const std::string& fromUID, const ProposalID& proposalID, const ProposalID& prevAcceptedID, const std::string& prevAcceptedValue); 
 	Messenger getMessenger();
 	std::string getProposerUID();
 	int getQuorumSize();
@@ -42,8 +42,8 @@ public:
 	ProposalID getLastAcceptedID();
 	int numPromises();
 	void observeProposal(const std::string& fromUID, const ProposalID& proposalID);
-	void receivePrepareNACK(const std::string& proposerUID, const ProposalID& proposalID, const ProposalID& promisedID);
-	void receiveAcceptNACK(const std::string& proposerUID, const ProposalID& proposalID, const ProposalID& promisedID);
+	virtual void receivePrepareNACK(const std::string& proposerUID, const ProposalID& proposalID, const ProposalID& promisedID);
+	virtual void receiveAcceptNACK(const std::string& proposerUID, const ProposalID& proposalID, const ProposalID& promisedID);
 	void resendAccept();
 	bool isLeader();
 	void setLeader(bool leader);

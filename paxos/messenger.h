@@ -2,12 +2,6 @@
 
 #include "proposalid.h"
 
-class HeartbeatCallback 
-{	
-public:
-	virtual void execute(){}
-};
-
 class Messenger
 {
 public:
@@ -32,7 +26,6 @@ public:
 
 	//发送心跳
 	virtual void sendHeartbeat(const ProposalID& leaderProposalID){}
-	virtual void schedule(long millisecondDelay, HeartbeatCallback callback){}
 	//丢失主
 	virtual void onLeadershipLost(){}
 	//主变更
