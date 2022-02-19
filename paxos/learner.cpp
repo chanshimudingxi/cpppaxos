@@ -42,7 +42,7 @@ void Learner::receiveAccepted(const std::string& fromUID, const ProposalID& prop
 	//Proposal中没有这个议题
     if (m_proposals.find(proposalID) == m_proposals.end())
     {
-        m_proposals.insert<ProposalID, Proposal>(proposalID, Proposal(0, 0, acceptedValue));
+        m_proposals.insert(std::pair<ProposalID, Proposal>(proposalID, Proposal(0, 0, acceptedValue)));
 	}
 
     Proposal& thisProposal = m_proposals[proposalID];	    
