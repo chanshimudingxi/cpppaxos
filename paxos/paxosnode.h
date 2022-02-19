@@ -2,11 +2,11 @@
 
 #include "paxos.h"
 
-class Node : public Paxos
+class PaxosNode : public Paxos
 {
 public:
-	Node(const Messenger& messenger, const std::string& proposerUID, int quorumSize, const std::string& leaderUID, int heartbeatPeriod, int livenessWindow);
-	~Node(){}
+	PaxosNode(const Messenger& messenger, const std::string& proposerUID, int quorumSize, const std::string& leaderUID, int heartbeatPeriod, int livenessWindow);
+	~PaxosNode(){}
 
 	long timestamp();
 	std::string getLeaderUID();

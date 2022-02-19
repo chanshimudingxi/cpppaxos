@@ -1,8 +1,8 @@
-#include "node.h"
+#include "paxosnode.h"
 
 #include <time.h>
 
-Node::Node(const Messenger& messenger, const std::string& proposerUID, int quorumSize, const std::string& leaderUID, 
+PaxosNode::PaxosNode(const Messenger& messenger, const std::string& proposerUID, int quorumSize, const std::string& leaderUID, 
 	int heartbeatPeriod, int livenessWindow): Paxos(messenger, proposerUID, quorumSize)
 {
 	
@@ -19,7 +19,7 @@ Node::Node(const Messenger& messenger, const std::string& proposerUID, int quoru
 	}
 }
 
-long Node::timestamp() 
+long PaxosNode::timestamp() 
 {
 	struct timespec time;
 	clock_gettime(CLOCK_MONOTONIC, &time);
@@ -29,44 +29,44 @@ long Node::timestamp()
 	return  utime;
 }
 
-std::string Node::getLeaderUID()
+std::string PaxosNode::getLeaderUID()
 {
 	return m_leaderUID;
 }
 
-ProposalID Node::getLeaderProposalID() 
+ProposalID PaxosNode::getLeaderProposalID() 
 {
 	return m_leaderProposalID;
 }
 
-void Node::setLeaderProposalID( const ProposalID& newLeaderID )
+void PaxosNode::setLeaderProposalID( const ProposalID& newLeaderID )
 {
 	m_leaderProposalID = newLeaderID;
 }
 
-bool Node::isAcquiringLeadership() 
+bool PaxosNode::isAcquiringLeadership() 
 {
 	return m_acquiringLeadership;
 }
 
-void Node::prepare(bool incrementProposalNumber)
+void PaxosNode::prepare(bool incrementProposalNumber)
 {
 	if (incrementProposalNumber)
 		m_acceptNACKs.clear();
 	Paxos::prepare(incrementProposalNumber);
 }
 
-bool Node::leaderIsAlive() 
+bool PaxosNode::leaderIsAlive() 
 {
 	return timestamp() - m_lastHeartbeatTimestamp <= m_livenessWindow;
 }
 
-bool Node::observedRecentPrepare()
+bool PaxosNode::observedRecentPrepare()
 {
 	return timestamp() - m_lastPrepareTimestamp <= m_livenessWindow * 1.5;
 }
 
-void Node::pollLiveness() 
+void PaxosNode::pollLiveness() 
 {
 	if (!leaderIsAlive() && !observedRecentPrepare()) 
 	{
@@ -77,7 +77,7 @@ void Node::pollLiveness()
 	}
 }
 
-void Node::receiveHeartbeat(const std::string& fromUID, const ProposalID& proposalID)
+void PaxosNode::receiveHeartbeat(const std::string& fromUID, const ProposalID& proposalID)
 {
 	if (!m_leaderProposalID.isValid() || proposalID > m_leaderProposalID) {
 		m_acquiringLeadership = false;
@@ -99,7 +99,7 @@ void Node::receiveHeartbeat(const std::string& fromUID, const ProposalID& propos
 		m_lastHeartbeatTimestamp = timestamp();
 }
 
-void Node::pulse()
+void PaxosNode::pulse()
 {
 	if (isLeader()) 
 	{
@@ -108,7 +108,7 @@ void Node::pulse()
 	}
 }
 
-void Node::acquireLeadership() 
+void PaxosNode::acquireLeadership() 
 {
 	if (leaderIsAlive())
 		m_acquiringLeadership = false;
@@ -119,14 +119,14 @@ void Node::acquireLeadership()
 	}
 }
 
-void Node::receivePrepare(const std::string& fromUID, const ProposalID& proposalID)
+void PaxosNode::receivePrepare(const std::string& fromUID, const ProposalID& proposalID)
 {
 	Paxos::receivePrepare(fromUID, proposalID);
 	if (proposalID != getProposalID())
 		m_lastPrepareTimestamp = timestamp();
 }
 
-void Node::receivePromise(const std::string& fromUID, const ProposalID& proposalID, const ProposalID& prevAcceptedID, const std::string& prevAcceptedValue)
+void PaxosNode::receivePromise(const std::string& fromUID, const ProposalID& proposalID, const ProposalID& prevAcceptedID, const std::string& prevAcceptedValue)
 {
 	std::string preLeaderUID = m_leaderUID;
 	
@@ -146,7 +146,7 @@ void Node::receivePromise(const std::string& fromUID, const ProposalID& proposal
 	}
 }
 
-void Node::receivePrepareNACK(const std::string& proposerUID, const ProposalID& proposalID, const ProposalID& promisedID)
+void PaxosNode::receivePrepareNACK(const std::string& proposerUID, const ProposalID& proposalID, const ProposalID& promisedID)
 {
 	Paxos::receivePrepareNACK(proposerUID, proposalID, promisedID);
 	
@@ -156,7 +156,7 @@ void Node::receivePrepareNACK(const std::string& proposerUID, const ProposalID& 
 	}		
 }
 
-void Node::receiveAcceptNACK(const std::string& proposerUID, const ProposalID& proposalID, const ProposalID& promisedID)
+void PaxosNode::receiveAcceptNACK(const std::string& proposerUID, const ProposalID& proposalID, const ProposalID& promisedID)
 {
 	Paxos::receiveAcceptNACK(proposerUID, proposalID, promisedID);
 	

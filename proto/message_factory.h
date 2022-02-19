@@ -2,6 +2,7 @@
 #define MESSAGE_FACTORY_H_
 
 #include "message.h"
+#include "proto.h"
 
 class MessageFactory{
 public:

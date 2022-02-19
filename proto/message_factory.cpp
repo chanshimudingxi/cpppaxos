@@ -1,12 +1,11 @@
 #include "message_factory.h"
-#include "test_message.h"
 
 Message* MessageFactory::CreateMessage(uint16_t protoVersion, uint32_t protoId){
 	Message* pMsg = nullptr;
-	if(protoVersion == SSN_PROTO){
+	if(protoVersion == PAXOS_PROTO){
 		switch(protoId){
-		case SSN_PROTO_TEST_MESSAGE:
-			pMsg = new TestMessage(protoVersion, protoId);
+		case PAXOS_PROTO_PING_MESSAGE:
+			pMsg = new PingMessage(protoVersion, protoId);
 			break;
 		default:
 			break;

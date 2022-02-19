@@ -26,7 +26,9 @@ link_directories(
 add_subdirectory(deps)
 
 aux_source_directory(proto PROTO_SRC)
+aux_source_directory(paxos PAXOS_SRC)
 
-add_executable(node node.cpp main.cpp ${PROTO_SRC})
+
+add_executable(node server.cpp main.cpp ${PROTO_SRC} ${PAXOS_SRC})
 
 target_link_libraries(node deps)
