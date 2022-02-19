@@ -57,7 +57,9 @@ struct ProtoPeer{
 
 	virtual void EncodeToString(std::string* str) const{
 		Serializer::PutString(m_id, str);
-		for(int i=0; i<m_addrs.size(); ++i){
+		size_t size = m_addrs.size();
+		Serializer::PutUint32(size, str);
+		for(int i=0; i<size; ++i){
 			m_addrs[i].EncodeToString(str);
 		}
 	}
@@ -70,7 +72,13 @@ struct ProtoPeer{
 		}
 		offset += m_id.size() + 4;
 
-		for(int i=0; i<m_addrs.size(); ++i){
+		uint32_t vsize = 0;
+		if(!Serializer::GetUint32(buf + offset, size-offset, &vsize)){
+			return false;
+		}
+		offset += 4;
+
+		for(int i=0; i<vsize; ++i){
 			size_t len = 0;
 			if(!m_addrs[i].DecodeFromArray(buf + offset, size-offset, &len)){	
 				return false;

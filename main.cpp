@@ -3,6 +3,8 @@
 int main(int argc, char** argv){
 	int ret = 0;
 	
+	setLogLevel(LOG_LEVEL_DEBUG);
+
 	std::string mySID = "123456789";
 	char* myID;
 	char *localIp = nullptr;
