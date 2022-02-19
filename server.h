@@ -38,7 +38,8 @@ class Server
 public:
     Server();
     ~Server();
-	bool Init(const std::string& myID, const std::string& localIP, uint16_t localPort, uint16_t localCPort, const std::string& dstIP, uint16_t dstPort);
+	bool Init(const std::string& myID, const std::string& localIP, uint16_t localTcpPort, uint16_t localUdpPort, 
+		const std::string& dstIP, uint16_t dstTcpPort, uint16_t dstUdpPort);
 	bool Run();
 	bool Listen(int port, int backlog, SocketType type, CommonProtoParser* parser);
 
@@ -67,8 +68,10 @@ private:
 
 	std::string m_myid;
 	uint32_t m_localIP;
-	uint16_t m_localPort;
-	uint16_t m_localCPort;
+	uint16_t m_localTcpPort;
+	uint16_t m_localUdpPort;
 
 	std::vector<PeerAddr> m_stableAddrs;
+
+	time_t m_lastSendTime;
 };

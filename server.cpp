@@ -12,6 +12,8 @@ Server::Server(){
 	m_signalParser = new CommonProtoParser();
 	assert(nullptr != m_signalParser);
 	m_signalParser->SetCallback(HandleSignalMessage, this);
+
+	m_lastSendTime = 0;
 }
 
 Server::~Server(){
@@ -26,19 +28,28 @@ Server::~Server(){
 	}
 }
 
-bool Server::Init(const std::string& myID, const std::string& localIP, uint16_t localPort, uint16_t localCPort, const std::string& dstIP, uint16_t dstPort){
+bool Server::Init(const std::string& myID, const std::string& localIP, uint16_t localTcpPort, uint16_t localUdpPort, 
+	const std::string& dstIP, uint16_t dstTcpPort, uint16_t dstUdpPort){
+
     if(!m_container->Init()){
         return false;
     }
 	m_myid = myID;
 	m_localIP = inet_addr(localIP.c_str());
-	m_localPort = localPort;
-	m_localCPort = localCPort;
+	m_localTcpPort = localTcpPort;
+	m_localUdpPort = localUdpPort;
 
 	PeerAddr addr;
 	addr.m_ip = inet_addr(dstIP.c_str());
-	addr.m_port = dstPort;
+
+	addr.m_port = dstTcpPort;
+	addr.m_socketType = SocketType::tcp;
 	m_stableAddrs.push_back(addr);
+
+	addr.m_port = dstUdpPort;
+	addr.m_socketType = SocketType::udp;
+	m_stableAddrs.push_back(addr);
+
 	return true;
 }
 
@@ -61,10 +72,10 @@ bool Server::Listen(int port, int backlog, SocketType type, CommonProtoParser* p
 }
 
 bool Server::Run(){
-	if(!Listen(m_localCPort, 10, SocketType::tcp, m_signalParser)){
+	if(!Listen(m_localUdpPort, 10, SocketType::tcp, m_signalParser)){
 		return false;
 	}
-	if(!Listen(m_localPort, 10, SocketType::udp, m_paxosParser)){
+	if(!Listen(m_localTcpPort, 10, SocketType::udp, m_paxosParser)){
 		return false;
 	}
 
@@ -138,8 +149,11 @@ bool Server::HandlePingMessage(std::shared_ptr<PingMessage> pMsg, SocketBase* s)
 }
 
 void Server::HandleLoop(){
-	SendPingMessageToAllPeer();
-	SendPingMessageToStablePeerAddrs();
+	if(m_lastSendTime == 0 || m_lastSendTime % 30 == 0){
+		SendPingMessageToAllPeer();
+		SendPingMessageToStablePeerAddrs();
+		m_lastSendTime = time(0);
+	}
 }
 
 bool Server::Connect(uint32_t ip, int port, SocketType type, int* pfd){
@@ -214,10 +228,10 @@ void Server::SendPingMessageToAllPeer(){
 	ping.m_myInfo.m_id = m_myid;
 	ProtoPeerAddr addr;
 	addr.m_ip= m_localIP;
-	addr.m_port = m_localCPort;
+	addr.m_port = m_localUdpPort;
 	addr.m_socketType = 0;
 	ping.m_myInfo.m_addrs.push_back(addr);
-	addr.m_port = m_localPort;
+	addr.m_port = m_localTcpPort;
 	addr.m_socketType = 1;
 	ping.m_myInfo.m_addrs.push_back(addr);
 
@@ -231,10 +245,10 @@ void Server::SendPingMessageToStablePeerAddrs(){
 	ping.m_myInfo.m_id = m_myid;
 	ProtoPeerAddr addr;
 	addr.m_ip= m_localIP;
-	addr.m_port = m_localCPort;
+	addr.m_port = m_localUdpPort;
 	addr.m_socketType = 0;
 	ping.m_myInfo.m_addrs.push_back(addr);
-	addr.m_port = m_localPort;
+	addr.m_port = m_localTcpPort;
 	addr.m_socketType = 1;
 	ping.m_myInfo.m_addrs.push_back(addr);
 

@@ -6,14 +6,15 @@ int main(int argc, char** argv){
 	std::string mySID = "123456789";
 	char* myID;
 	char *localIp = nullptr;
-	int localPort = -1;	//paxos协议端口
-	int localCPort = -1;	//业务信令端口
 	std::string localSip = "127.0.0.1";
+	int localTcpPort = -1;
+	int localUdpPort = -1;
 	char* dstIp = nullptr;
-	int dstPort = -1;
 	std::string dstSip = "127.0.0.1";
+	int dstTcpPort = -1;
+	int dstUdpPort = -1;
 
-    while( (ret = getopt(argc, argv, "s:a:b:c:d:f:")) != -1 ){
+    while( (ret = getopt(argc, argv, "s:a:b:c:d:e:f:")) != -1 ){
         switch(ret){
 			case 's':
 				myID = optarg;
@@ -22,16 +23,19 @@ int main(int argc, char** argv){
 				localIp = optarg;
 				break;
 			case 'b':
-				localPort = atoi(optarg);
+				localTcpPort = atoi(optarg);
 				break;
 			case 'c':
-				localCPort = atoi(optarg);
+				localUdpPort = atoi(optarg);
 				break;
 			case 'd':
 				dstIp = optarg;
 				break;
+			case 'e':
+				dstTcpPort = atoi(optarg);
+				break;
 			case 'f':
-				dstPort = atoi(optarg);
+				dstUdpPort = atoi(optarg);
 				break;
 			default:
 				break;
@@ -47,18 +51,21 @@ int main(int argc, char** argv){
 	if(dstIp != nullptr){
 		dstSip = dstIp;
 	}
-	if(localPort == -1){
-		localPort = 10000;
+	if(localTcpPort == -1){
+		localTcpPort = 10000;
 	}
-	if(localCPort == -1){
-		localCPort = 20000;
+	if(localUdpPort == -1){
+		localUdpPort = 20000;
 	}
-	if(dstPort == -1){
-		dstPort = 20001;
+	if(dstTcpPort == -1){
+		dstTcpPort = 10001;
+	}
+	if(dstUdpPort == -1){
+		dstUdpPort = 20001;
 	}
 
 	Server server;
-	if(!server.Init(mySID, localSip, localPort, localCPort, dstSip, dstPort)){
+	if(!server.Init(mySID, localSip, localTcpPort, localUdpPort, dstSip, dstTcpPort, dstUdpPort)){
 		return -1;
 	}
 	if(!server.Run()){
