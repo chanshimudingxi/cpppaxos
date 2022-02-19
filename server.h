@@ -47,9 +47,9 @@ public:
 	bool HandlePingMessage(std::shared_ptr<PingMessage> pMsg, SocketBase* s);
 
 	void TimerCheck();
-	bool Connect(std::string ip, int port, SocketType type, int* pfd);
+	bool Connect(uint32_t ip, int port, SocketType type, int* pfd);
 	bool SendMessage(const Message& msg, SocketBase* s);
-	bool SendMessageToPeer(const Message& msg, const Peer& peer);
+	bool SendMessageToPeer(const Message& msg, Peer& peer);
 	void SendMessageToAll(const Message& msg);
 	void SendPingMessageToAll();
 private:

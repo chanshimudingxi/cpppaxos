@@ -10,7 +10,7 @@
 #include "net/proto_parser.h"
 #include "sys/util.h"
 #include "message_factory.h"
-#include "test_message.h"
+#include "proto.h"
 
 typedef bool (*Message_Callback)(std::shared_ptr<Message> pMsg, SocketBase* s, void* instance);
 

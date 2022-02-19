@@ -84,8 +84,9 @@ int CommonProtoParser::HandlePacket(const char* data, size_t size, SocketBase* s
 		LOG_ERROR("unknow message proroVersion:%u protoId:%u", protoVersion, protoId);
 		return -1;
 	}
-	if(!pMsg->DecodeFromArray(data+10, packetSize-10)){
-		LOG_ERROR("message proroVersion:%u protoId:%u decode failed", protoVersion, protoId);
+    size_t len=0;
+	if(!pMsg->DecodeFromArray(data+10, packetSize-10, &len)){
+		LOG_ERROR("message proroVersion:%u protoId:%u len:%zd decode failed", protoVersion, protoId, len);
 		return -1;
 	}
 

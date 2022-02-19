@@ -79,19 +79,18 @@ bool Server::HandlePingMessage(std::shared_ptr<PingMessage> pMsg, SocketBase* s)
 	return true;
 }
 
-void TimerCheck(){
+void Server::TimerCheck(){
 	SendPingMessageToAll();
 }
 
-bool Server::Connect(std::string ip, int port, SocketType type, int* pfd){
-	uint32_t uip = inet_addr(ip.c_str());
+bool Server::Connect(uint32_t ip, int port, SocketType type, int* pfd){
 	switch(type){
 		case SocketType::tcp:{
-			return TcpSocket::Connect(uip, port, m_container, m_commonProtoParser, pfd);
+			return TcpSocket::Connect(ip, port, m_container, m_commonProtoParser, pfd);
 		}
 		break;
 		case SocketType::udp:{
-			return UdpSocket::Connect(uip, port, m_container, m_commonProtoParser, pfd);
+			return UdpSocket::Connect(ip, port, m_container, m_commonProtoParser, pfd);
 		}
 		break;
 		default:{
@@ -112,7 +111,7 @@ bool Server::SendMessage(const Message& msg, SocketBase* s){
 	return true;
 }
 
-bool Server::SendMessageToPeer(const Message& msg, const Peer& peer){
+bool Server::SendMessageToPeer(const Message& msg, Peer& peer){
 	int ret = 0;
 	for(int i=0; peer.m_addrs.size(); ++i){
 		PeerAddr& addr = peer.m_addrs[i];
@@ -152,9 +151,7 @@ void Server::SendPingMessageToAll(){
 	ping.m_stamp = Util::GetMonoTimeMs();
 	ping.m_myInfo.m_id = "123456789";
 	ProtoPeerAddr addr;
-	struct in_addr netAddr;
-	int ret = inet_aton("47.242.161.76", &netAddr);
-	addr.m_ip = netAddr.s_addr;
+	addr.m_ip= inet_addr("47.242.161.76");
 	addr.m_port = 8888;
 	addr.m_socketType = 0;
 	ping.m_myInfo.m_addrs.push_back(addr);

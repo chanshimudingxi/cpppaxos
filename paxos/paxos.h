@@ -10,7 +10,7 @@ class Paxos
 {
 public:
 	Paxos(const Messenger& messenger, const std::string& proposerUID, int quorumSize);
-	~Paxos();
+    virtual	~Paxos();
 
 	//节点paxos协议功能部分
 	bool isActive();

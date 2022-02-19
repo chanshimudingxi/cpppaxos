@@ -6,7 +6,7 @@ class PaxosNode : public Paxos
 {
 public:
 	PaxosNode(const Messenger& messenger, const std::string& proposerUID, int quorumSize, const std::string& leaderUID, int heartbeatPeriod, int livenessWindow);
-	~PaxosNode(){}
+	virtual ~PaxosNode();
 
 	long timestamp();
 	std::string getLeaderUID();

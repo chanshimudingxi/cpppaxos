@@ -19,6 +19,8 @@ PaxosNode::PaxosNode(const Messenger& messenger, const std::string& proposerUID,
 	}
 }
 
+PaxosNode::~PaxosNode(){}
+
 long PaxosNode::timestamp() 
 {
 	struct timespec time;
@@ -47,6 +49,11 @@ void PaxosNode::setLeaderProposalID( const ProposalID& newLeaderID )
 bool PaxosNode::isAcquiringLeadership() 
 {
 	return m_acquiringLeadership;
+}
+
+void PaxosNode::prepare()
+{
+    Paxos::prepare();
 }
 
 void PaxosNode::prepare(bool incrementProposalNumber)

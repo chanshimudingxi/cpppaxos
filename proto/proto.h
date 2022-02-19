@@ -52,8 +52,8 @@ struct ProtoPeerAddr{
 };
 
 struct ProtoPeer{
-	ProtoPeer();
-	~ProtoPeer();
+	ProtoPeer(){}
+	~ProtoPeer(){}
 
 	virtual void EncodeToString(std::string* str) const{
 		Serializer::PutString(m_id, str);
