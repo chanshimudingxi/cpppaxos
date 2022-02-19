@@ -11,9 +11,9 @@ public:
     ~Acceptor();
 
     //接收到prepare请求
-    void receivePrepare(const std::string& fromUID, const ProposalID& proposalID);
+    virtual void receivePrepare(const std::string& fromUID, const ProposalID& proposalID);
     //接收到accept请求
-	void receiveAcceptRequest(const std::string& fromUID, const ProposalID& proposalID, const std::string& value);
+	virtual void receiveAcceptRequest(const std::string& fromUID, const ProposalID& proposalID, const std::string& value);
 
     Messenger getMessenger();
     ProposalID getPromisedID();

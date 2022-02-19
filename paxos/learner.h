@@ -25,18 +25,20 @@ struct Proposal
 public:
     Learner( const Messenger& messenger, int quorumSize );
 	//整个状态机是否已经结束
-	bool isComplete();
+	virtual bool isComplete();
 
 	/*处理收到Acceptor发的accept请求
 	* @fromUID Acceptor的ID
 	* @proposalID accept请求携带的议题编号
 	* @acceptedValue accept请求携带的议题值
 	*/
-	void receiveAccepted(const std::string& fromUID, const ProposalID& proposalID, const std::string& acceptedValue);
+	virtual void receiveAccepted(const std::string& fromUID, const ProposalID& proposalID, const std::string& acceptedValue);
 	
-    int getQuorumSize();
-    std::string getFinalValue();
-	ProposalID getFinalProposalID();
+    virtual std::string getFinalValue();
+
+	virtual ProposalID getFinalProposalID();
+
+	int getQuorumSize();
 private:
 	Messenger      m_messenger; //通信器
 	int            m_quorumSize; //大多数的条件

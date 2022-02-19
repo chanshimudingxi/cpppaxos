@@ -60,11 +60,6 @@ void Learner::receiveAccepted(const std::string& fromUID, const ProposalID& prop
     }
 }
 
-int Learner::getQuorumSize() 
-{
-    return m_quorumSize;
-}
-
 std::string Learner::getFinalValue() 
 {
     return m_finalValue;
@@ -73,4 +68,9 @@ std::string Learner::getFinalValue()
 ProposalID Learner::getFinalProposalID() 
 {
     return m_finalProposalID;
+}
+
+int Learner::getQuorumSize() 
+{
+    return m_quorumSize;
 }

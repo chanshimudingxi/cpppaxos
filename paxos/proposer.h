@@ -18,10 +18,10 @@ public:
     ~Proposer();
 
     //设置议题值
-    void setProposal(const std::string& value);
-    //prepare请求
+    virtual void setProposal(const std::string& value);
+    
+	//prepare请求
     virtual void prepare();
-	virtual void prepare(bool incrementProposalNumber);
 
     /*
      *收到prepare请求的响应
@@ -29,7 +29,7 @@ public:
      *@prevAcceptedID 最大批准议题编号
      *@prevAcceptedValue 最大批准议题编号对应的议题值
      */
-    void receivePromise(const std::string& fromUID, const ProposalID& proposalID, const ProposalID& prevAcceptedID, const std::string& prevAcceptedValue);
+    virtual void receivePromise(const std::string& fromUID, const ProposalID& proposalID, const ProposalID& prevAcceptedID, const std::string& prevAcceptedValue);
 
     Messenger getMessenger();
     std::string getProposerUID();
@@ -39,6 +39,7 @@ public:
     ProposalID getLastAcceptedID();
     int numPromises();
 
+	void prepare(bool incrementProposalNumber);
 	void observeProposal(const std::string& fromUID, const ProposalID& proposalID);
 	void receivePrepareNACK(const std::string& proposerUID, const ProposalID& proposalID, const ProposalID& promisedID);
 	void receiveAcceptNACK(const std::string& proposerUID, const ProposalID& proposalID, const ProposalID& promisedID);

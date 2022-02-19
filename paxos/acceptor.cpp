@@ -37,7 +37,7 @@ void Acceptor::receivePrepare(const std::string& fromUID, const ProposalID& prop
 
 void Acceptor::receiveAcceptRequest(const std::string& fromUID, const ProposalID& proposalID, const std::string& value) 
 {
-	if (m_acceptedID.isValid() && proposalID.equals(m_acceptedID) && m_acceptedValue.empty()) 
+	if (m_acceptedID.isValid() && proposalID.equals(m_acceptedID) && m_acceptedValue == value) 
 	{
 		if (m_active)
 		{
@@ -91,7 +91,7 @@ std::string Acceptor::getAcceptedValue()
 
 bool Acceptor::persistenceRequired() 
 {
-	return !m_pendingAccepted.empty() || m_pendingPromise.empty();
+	return !m_pendingAccepted.empty() || !m_pendingPromise.empty();
 }
 	
 

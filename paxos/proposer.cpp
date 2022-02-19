@@ -13,41 +13,6 @@ Proposer::~Proposer()
 
 }
 
-Messenger Proposer::getMessenger() 
-{
-    return m_messenger;
-}
-
-std::string Proposer::getProposerUID() 
-{
-    return m_proposerUID;
-}
-
-int Proposer::getQuorumSize() 
-{
-    return m_quorumSize;
-}
-
-ProposalID Proposer::getProposalID() 
-{
-    return m_proposalID;
-}
-
-std::string Proposer::getProposedValue() 
-{
-    return m_proposedValue;
-}
-
-ProposalID Proposer::getLastAcceptedID() 
-{
-    return m_lastAcceptedID;
-}
-
-int Proposer::numPromises() 
-{
-    return m_promisesReceived.size();
-}
-
 void Proposer::setProposal(const std::string& value)
 {
 	if ( m_proposedValue.empty()) 
@@ -86,32 +51,6 @@ void Proposer::prepare( bool incrementProposalNumber )
 	}
 }
 
-void Proposer::observeProposal(const std::string& fromUID, const ProposalID& proposalID) 
-{
-	if (proposalID.isGreaterThan(m_proposalID))
-	{
-		m_proposalID.setNumber(proposalID.getNumber());
-	}
-}
-
-void Proposer::receivePrepareNACK(const std::string& proposerUID, const ProposalID& proposalID, const ProposalID& promisedID) 
-{
-	observeProposal(proposerUID, promisedID);
-}
-
-void Proposer::receiveAcceptNACK(const std::string& proposerUID, const ProposalID& proposalID, const ProposalID& promisedID) 
-{
-	
-}
-
-void Proposer::resendAccept() 
-{
-	if (m_leader && m_active && !m_proposedValue.empty())
-	{		
-		m_messenger.sendAccept(m_proposalID, m_proposedValue);
-	}
-}
-
 void Proposer::receivePromise(const std::string& fromUID, const ProposalID& proposalID, const ProposalID& prevAcceptedID, const std::string& prevAcceptedValue) 
 {
 	observeProposal(fromUID, proposalID);
@@ -142,6 +81,67 @@ void Proposer::receivePromise(const std::string& fromUID, const ProposalID& prop
 		{
 			m_messenger.sendAccept(m_proposalID, m_proposedValue);
 		}
+	}
+}
+
+Messenger Proposer::getMessenger() 
+{
+    return m_messenger;
+}
+
+std::string Proposer::getProposerUID() 
+{
+    return m_proposerUID;
+}
+
+int Proposer::getQuorumSize() 
+{
+    return m_quorumSize;
+}
+
+ProposalID Proposer::getProposalID() 
+{
+    return m_proposalID;
+}
+
+std::string Proposer::getProposedValue() 
+{
+    return m_proposedValue;
+}
+
+ProposalID Proposer::getLastAcceptedID() 
+{
+    return m_lastAcceptedID;
+}
+
+int Proposer::numPromises() 
+{
+    return m_promisesReceived.size();
+}
+
+void Proposer::observeProposal(const std::string& fromUID, const ProposalID& proposalID) 
+{
+	if (proposalID.isGreaterThan(m_proposalID))
+	{
+		m_proposalID.setNumber(proposalID.getNumber());
+	}
+}
+
+void Proposer::receivePrepareNACK(const std::string& proposerUID, const ProposalID& proposalID, const ProposalID& promisedID) 
+{
+	observeProposal(proposerUID, promisedID);
+}
+
+void Proposer::receiveAcceptNACK(const std::string& proposerUID, const ProposalID& proposalID, const ProposalID& promisedID) 
+{
+	
+}
+
+void Proposer::resendAccept() 
+{
+	if (m_leader && m_active && !m_proposedValue.empty())
+	{		
+		m_messenger.sendAccept(m_proposalID, m_proposedValue);
 	}
 }
 

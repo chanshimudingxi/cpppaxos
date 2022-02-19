@@ -2,7 +2,8 @@
 
 ProposalID::ProposalID()
 {
-
+	m_number = 0;
+	m_uid = "";
 }
 
 ProposalID::ProposalID(int number, std::string uid)
@@ -20,7 +21,6 @@ ProposalID& ProposalID::operator=(const ProposalID& id)
 
 ProposalID::~ProposalID()
 {
-
 }
 
 bool ProposalID::isValid() const
