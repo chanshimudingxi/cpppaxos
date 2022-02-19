@@ -1,5 +1,4 @@
-#ifndef COMMON_PROTO_PARSER_H_
-#define COMMON_PROTO_PARSER_H_
+#pragma once
 
 #include <string>
 #include <cstddef>
@@ -26,5 +25,3 @@ private:
 	Message_Callback m_callback;
 	void* m_instance;
 }; 
-
-#endif
