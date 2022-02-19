@@ -7,14 +7,14 @@ Acceptor::Acceptor(const Messenger& messenger)
 
 void Acceptor::receivePrepare(const std::string& fromUID, const ProposalID& proposalID) 
 {
-	if (m_promisedID.isValid() && proposalID.equals(m_promisedID)) 
+	if (m_promisedID.isValid() && proposalID == m_promisedID) 
 	{ // duplicate message
 		if (m_active)
 		{
 			m_messenger.sendPromise(fromUID, proposalID, m_acceptedID, m_acceptedValue);
 		}
 	}
-	else if (!m_promisedID.isValid() || proposalID.isGreaterThan(m_promisedID)) 
+	else if (!m_promisedID.isValid() || proposalID > m_promisedID) 
 	{
 		if (m_pendingPromise.empty()) 
 		{
@@ -37,14 +37,14 @@ void Acceptor::receivePrepare(const std::string& fromUID, const ProposalID& prop
 
 void Acceptor::receiveAcceptRequest(const std::string& fromUID, const ProposalID& proposalID, const std::string& value) 
 {
-	if (m_acceptedID.isValid() && proposalID.equals(m_acceptedID) && m_acceptedValue == value) 
+	if (m_acceptedID.isValid() && proposalID == m_acceptedID && m_acceptedValue == value) 
 	{
 		if (m_active)
 		{
 			m_messenger.sendAccepted(proposalID, value);
 		}
 	}
-	else if (!m_promisedID.isValid() || proposalID.isGreaterThan(m_promisedID) || proposalID.equals(m_promisedID)) 
+	else if (!m_promisedID.isValid() || proposalID > m_promisedID || proposalID == m_promisedID) 
 	{
 		if (m_pendingAccepted.empty()) 
 		{

@@ -79,7 +79,7 @@ void Node::pollLiveness()
 
 void Node::receiveHeartbeat(const std::string& fromUID, const ProposalID& proposalID)
 {
-	if (!m_leaderProposalID.isValid() || proposalID.isGreaterThan(m_leaderProposalID)) {
+	if (!m_leaderProposalID.isValid() || proposalID > m_leaderProposalID) {
 		m_acquiringLeadership = false;
 		std::string oldLeaderUID = m_leaderUID;
 		
@@ -95,7 +95,7 @@ void Node::receiveHeartbeat(const std::string& fromUID, const ProposalID& propos
 		m_messenger.onLeadershipChange(oldLeaderUID, fromUID);
 	}
 	
-	if (m_leaderProposalID.isValid() && m_leaderProposalID.equals(proposalID))
+	if (m_leaderProposalID.isValid() && m_leaderProposalID == proposalID)
 		m_lastHeartbeatTimestamp = timestamp();
 }
 
@@ -122,7 +122,7 @@ void Node::acquireLeadership()
 void Node::receivePrepare(const std::string& fromUID, const ProposalID& proposalID)
 {
 	Paxos::receivePrepare(fromUID, proposalID);
-	if (!proposalID.equals(getProposalID()))
+	if (!proposalID == getProposalID())
 		m_lastPrepareTimestamp = timestamp();
 }
 
@@ -160,7 +160,7 @@ void Node::receiveAcceptNACK(const std::string& proposerUID, const ProposalID& p
 {
 	Paxos::receiveAcceptNACK(proposerUID, proposalID, promisedID);
 	
-	if (proposalID.equals(getProposalID()))
+	if (proposalID == getProposalID())
 		m_acceptNACKs.insert(proposerUID);
 	
 	if (isLeader() && m_acceptNACKs.size() >= getQuorumSize()) 

@@ -13,17 +13,18 @@ public:
 	ProposalID getLeaderProposalID();
 	void setLeaderProposalID( const ProposalID& newLeaderID ); 
 	bool isAcquiringLeadership();
-	void prepare(bool incrementProposalNumber);
+	virtual void prepare();
+	virtual void prepare(bool incrementProposalNumber);
 	bool leaderIsAlive();
 	bool observedRecentPrepare();
 	void pollLiveness();
 	void receiveHeartbeat(const std::string& fromUID, const ProposalID& proposalID); 
 	void pulse();
 	void acquireLeadership();
-	void receivePrepare(const std::string& fromUID, const ProposalID& proposalID);
-	void receivePromise(const std::string& fromUID, const ProposalID& proposalID, const ProposalID& prevAcceptedID, const std::string& prevAcceptedValue);
-	void receivePrepareNACK(const std::string& proposerUID, const ProposalID& proposalID, const ProposalID& promisedID);
-	void receiveAcceptNACK(const std::string& proposerUID, const ProposalID& proposalID, const ProposalID& promisedID);
+	virtual void receivePrepare(const std::string& fromUID, const ProposalID& proposalID);
+	virtual void receivePromise(const std::string& fromUID, const ProposalID& proposalID, const ProposalID& prevAcceptedID, const std::string& prevAcceptedValue);
+	virtual void receivePrepareNACK(const std::string& proposerUID, const ProposalID& proposalID, const ProposalID& promisedID);
+	virtual void receiveAcceptNACK(const std::string& proposerUID, const ProposalID& proposalID, const ProposalID& promisedID);
 private:
 	std::string	m_leaderUID;
 	ProposalID	m_leaderProposalID;

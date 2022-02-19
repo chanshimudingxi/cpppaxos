@@ -69,22 +69,17 @@ int ProposalID::compare(const ProposalID& id) const
     }
 }
 
-bool ProposalID::isGreaterThan(const ProposalID& id) const
+bool ProposalID::operator<(const ProposalID& id) const
 {
-	return this->compare(id) > 0;
+	return this->compare(id) < 0;
 }
 
-bool ProposalID::isLessThan(const ProposalID& id) const
-{
-    return this->compare(id) < 0;
-}
-
-bool ProposalID::equals(const ProposalID& id) const
+bool ProposalID::operator==(const ProposalID& id) const
 {
 	return this->compare(id) == 0;
 }
 
-bool ProposalID::operator<(const ProposalID& id) const
+bool ProposalID::operator>(const ProposalID& id) const
 {
-	return this->compare(id) < 0;
+	return this->compare(id) > 0;
 }

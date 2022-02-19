@@ -55,13 +55,13 @@ void Proposer::receivePromise(const std::string& fromUID, const ProposalID& prop
 {
 	observeProposal(fromUID, proposalID);
 	
-	if ( m_leader || !proposalID.equals(m_proposalID) || m_promisesReceived.find(fromUID) != m_promisesReceived.end()) 
+	if ( m_leader || !proposalID == m_proposalID || m_promisesReceived.find(fromUID) != m_promisesReceived.end()) 
 		return;
 	//当前prepare请求的响应者ID
 	m_promisesReceived.insert( fromUID );
 
 	//协议编号大于最近批准的协议编号
-	if (!m_lastAcceptedID.isValid() || prevAcceptedID.isGreaterThan(m_lastAcceptedID))
+	if (!m_lastAcceptedID.isValid() || prevAcceptedID > m_lastAcceptedID)
 	{
 		//更新最近被批准的议题编号
 		m_lastAcceptedID = prevAcceptedID;
@@ -121,7 +121,7 @@ int Proposer::numPromises()
 
 void Proposer::observeProposal(const std::string& fromUID, const ProposalID& proposalID) 
 {
-	if (proposalID.isGreaterThan(m_proposalID))
+	if (proposalID > m_proposalID)
 	{
 		m_proposalID.setNumber(proposalID.getNumber());
 	}
