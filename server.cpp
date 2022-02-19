@@ -1,4 +1,5 @@
 #include "server.h"
+#include <sstream>
 
 Server::Server(){
 	m_container = new EpollContainer(1000, 1000);
@@ -17,10 +18,11 @@ Server::~Server(){
 	}
 }
 
-bool Server::Init(){
+bool Server::Init(uint16_t port){
     if(!m_container->Init()){
         return false;
     }
+	m_port = port;
 	return true;
 }
 
@@ -43,10 +45,10 @@ bool Server::Listen(int port, int backlog, SocketType type){
 }
 
 bool Server::Run(){
-	if(!Listen(8888, 10, SocketType::tcp)){
+	if(!Listen(m_port, 10, SocketType::tcp)){
 		return false;
 	}
-	if(!Listen(8888, 10, SocketType::udp)){
+	if(!Listen(m_port, 10, SocketType::udp)){
 		return false;
 	}
 
@@ -76,6 +78,34 @@ bool Server::HandleMessage(std::shared_ptr<Message> pMsg, SocketBase* s){
 }
 
 bool Server::HandlePingMessage(std::shared_ptr<PingMessage> pMsg, SocketBase* s){
+	uint64_t lastStamp = pMsg->m_stamp;
+	std::string peerId = pMsg->m_myInfo.m_id;
+
+	Peer peer;
+	peer.m_id = peerId;
+	std::stringstream os;
+	for(int i = 0; i< pMsg->m_myInfo.m_addrs.size(); ++i){
+		ProtoPeerAddr& addr = pMsg->m_myInfo.m_addrs[i];
+		struct in_addr saddr;
+		saddr.s_addr = addr.m_ip;
+		char* sip = inet_ntoa(saddr);
+		os<<"ip:"<<sip<<" port:"<<addr.m_port<<" type:"<<(addr.m_socketType == 0 ? "tcp ": "udp ");
+
+		if(m_peers.find(peerId) == m_peers.end()){
+			PeerAddr peeraddr;
+			peeraddr.m_ip = addr.m_ip;
+			peeraddr.m_port = addr.m_port;
+			peeraddr.m_socketType = addr.m_socketType == 0 ? SocketType::tcp : SocketType::udp;
+			peer.m_addrs.push_back(peeraddr);
+		}
+	}
+
+	if(m_peers.find(peerId) == m_peers.end()){
+		m_peers[peerId] = peer;
+	}
+	uint64_t now = Util::GetMonoTimeMs();
+	uint64_t rtt = lastStamp > now ? lastStamp - now : 0;
+	LOG_DEBUG("peer id:%s rtt:%llums %s", peerId.c_str(), rtt, os.str().c_str());
 	return true;
 }
 
@@ -152,7 +182,7 @@ void Server::SendPingMessageToAll(){
 	ping.m_myInfo.m_id = "123456789";
 	ProtoPeerAddr addr;
 	addr.m_ip= inet_addr("47.242.161.76");
-	addr.m_port = 8888;
+	addr.m_port = m_port;
 	addr.m_socketType = 0;
 	ping.m_myInfo.m_addrs.push_back(addr);
 	addr.m_socketType = 1;

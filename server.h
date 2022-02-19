@@ -38,7 +38,7 @@ class Server
 public:
     Server();
     ~Server();
-	bool Init();
+	bool Init(uint16_t port);
 	bool Run();
 	bool Listen(int port, int backlog, SocketType type);
 
@@ -57,4 +57,6 @@ private:
 	CommonProtoParser* m_commonProtoParser;	//协议解析器
 
 	std::map<std::string, Peer> m_peers;	//所有加入paxos集群的节点
+
+	uint16_t m_port;
 };
