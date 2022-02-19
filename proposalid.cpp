@@ -23,7 +23,7 @@ ProposalID::~ProposalID()
 
 }
 
-bool ProposalID::isValid()
+bool ProposalID::isValid() const
 {
     if(m_uid.empty())
     {
@@ -32,7 +32,7 @@ bool ProposalID::isValid()
     return true;
 }
 
-int ProposalID::getNumber()
+int ProposalID::getNumber() const
 {
     return m_number;
 }
@@ -47,14 +47,15 @@ void ProposalID::incrementNumber()
     m_number++;
 }
 
-std::string ProposalID::getUID()
+std::string ProposalID::getUID() const
 {
     return m_uid;
 }
 
-int ProposalID::compare(const ProposalID& id)
+int ProposalID::compare(const ProposalID& id) const
 {
-    if( (m_uid == id.m_uid && m_number > id.m_number)||(m_uid > id.m_uid))
+    if( (m_uid > id.m_uid) ||
+		(m_uid == id.m_uid && m_number > id.m_number))
     {
         return 1;
     }
@@ -68,38 +69,22 @@ int ProposalID::compare(const ProposalID& id)
     }
 }
 
-bool ProposalID::operator>(const ProposalID& id)
+bool ProposalID::isGreaterThan(const ProposalID& id) const
 {
-    if( (m_uid == id.m_uid && m_number > id.m_number)||(m_uid > id.m_uid))
-    {
-        return true;
-    }
-    return false;
+	return this->compare(id) > 0;
 }
 
-bool ProposalID::operator<(const ProposalID& id)
+bool ProposalID::isLessThan(const ProposalID& id) const
 {
-    if( (m_uid == id.m_uid && m_number < id.m_number)||(m_uid < id.m_uid))
-    {
-        return true;
-    }
-    return false;
+    return this->compare(id) < 0;
 }
 
-bool ProposalID::operator==(const ProposalID& id)
+bool ProposalID::equals(const ProposalID& id) const
 {
-    if(m_number == id.m_number && m_uid == id.m_uid)
-    {
-        return true;
-    }
-    return false;
+	return this->compare(id) == 0;
 }
 
-bool ProposalID::operator!=(const ProposalID& id)
+bool ProposalID::operator<(const ProposalID& id) const
 {
-    if(m_number == id.m_number && m_uid == id.m_uid)
-    {
-        return false;
-    }
-    return true;
+	return this->compare(id) < 0;
 }

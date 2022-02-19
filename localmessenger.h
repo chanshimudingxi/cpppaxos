@@ -16,13 +16,18 @@
 #include "proto/common_proto_parser.h"
 #include "proto/test_message.h"
 
-#include "messenger.h"
-#include "acceptor.h"
-#include "proposalid.h"
-#include "proposer.h"
-#include "learner.h"
-
-#include "client.h"
+struct Client
+{
+	Client(std::string ip, int port, SocketType type):
+		m_ip(ip), m_port(port), m_socketType(type),
+		m_alive(false), m_fd(-1) {}
+	~Client(){}
+	std::string m_ip;
+	int m_port;
+	SocketType m_socketType;
+	bool m_alive;
+	int m_fd;
+};
 
 class Node{
 public:
@@ -45,24 +50,7 @@ private:
 };
 
 
-class PaxosNode : public Node
+class LocalMessenger : public Messenger
 {
-public:
 
-private:
-	//节点可以同时具备Proposer、Acceptor、Learner三种系统角色的功能
-	Proposer m_proposer;
-	Acceptor m_acceptor;
-	Learner  m_learner;
-
-	Messenger m_messenger;
-	std::string	m_leaderUID;
-	ProposalID	m_leaderProposalID;
-	long	m_lastHeartbeatTimestamp;
-	long	m_lastPrepareTimestamp;
-	long	m_heartbeatPeriod         = 1000; // Milliseconds
-	long	m_livenessWindow          = 5000; // Milliseconds
-	bool	m_acquiringLeadership     = false;
-	std::set<std::string>	m_acceptNACKs;
-}
-
+};

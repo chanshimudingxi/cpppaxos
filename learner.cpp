@@ -20,7 +20,7 @@ void Learner::receiveAccepted(const std::string& fromUID, const ProposalID& prop
 
 	//Acceptor的新议题的编号小于等于老议题编号，直接丢弃accept请求
 	ProposalID oldPID = m_acceptors[fromUID];
-	if(oldPID.isValid() && !proposalID.operator>(oldPID))
+	if(oldPID.isValid() && !proposalID.isGreaterThan(oldPID))
 	{
 		return;
 	}

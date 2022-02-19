@@ -9,7 +9,7 @@
 class Learner
 {
 
-class Proposal 
+struct Proposal 
 {
     Proposal(int acceptCount, int retentionCount, const std::string& value) 
     {
@@ -17,7 +17,6 @@ class Proposal
         m_retentionCount = retentionCount;
         m_value          = value;
     }
-public:
     int    m_acceptCount;		//批准该议题的Acceptor个数
     int    m_retentionCount;	//批准该老议题的Acceptor个数
     std::string m_value;

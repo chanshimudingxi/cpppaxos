@@ -10,17 +10,18 @@ public:
 	ProposalID& operator=(const ProposalID& id);
     ~ProposalID();
 
-    bool isValid();
-    int getNumber();
+    bool isValid() const;
+    int getNumber() const;
     void setNumber(int number);
     void incrementNumber();
-    std::string getUID();
+    std::string getUID() const;
 
-    int compare(const ProposalID& id);    
-    bool operator>(const ProposalID& id);
-    bool operator<(const ProposalID& id);
-    bool operator==(const ProposalID& id);
-    bool operator!=(const ProposalID& id);
+    int compare(const ProposalID& id) const;    
+    bool isGreaterThan(const ProposalID& id) const;
+    bool isLessThan(const ProposalID& id) const;
+    bool equals(const ProposalID& id) const;
+
+	bool operator<(const ProposalID& id) const;
 public:
     int m_number;
     std::string m_uid;
