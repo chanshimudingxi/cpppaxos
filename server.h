@@ -38,28 +38,37 @@ class Server
 public:
     Server();
     ~Server();
-	bool Init(const std::string& localIP, uint16_t localPort, const std::string& dstIP, uint16_t dstPort);
+	bool Init(const std::string& myID, const std::string& localIP, uint16_t localPort, uint16_t localCPort, const std::string& dstIP, uint16_t dstPort);
 	bool Run();
-	bool Listen(int port, int backlog, SocketType type);
+	bool Listen(int port, int backlog, SocketType type, CommonProtoParser* parser);
 
-	static bool HandleMessage(std::shared_ptr<Message> pMsg, SocketBase* s, void* instance);
-	bool HandleMessage(std::shared_ptr<Message> pMsg, SocketBase* s);
+	static bool HandlePaxosMessage(std::shared_ptr<Message> pMsg, SocketBase* s, void* instance);
+	bool HandlePaxosMessage(std::shared_ptr<Message> pMsg, SocketBase* s);
+
+	static bool HandleSignalMessage(std::shared_ptr<Message> pMsg, SocketBase* s, void* instance);
+	bool HandleSignalMessage(std::shared_ptr<Message> pMsg, SocketBase* s);
+
 	bool HandlePingMessage(std::shared_ptr<PingMessage> pMsg, SocketBase* s);
 
-	void TimerCheck();
+	void HandleLoop();
 	bool Connect(uint32_t ip, int port, SocketType type, int* pfd);
 	bool SendMessage(const Message& msg, SocketBase* s);
-	bool SendMessageToPeer(const Message& msg, Peer& peer);
-	void SendMessageToAll(const Message& msg);
-	void SendPingMessageToAll();
+	void SendMessageToPeerAddr(const Message& msg, PeerAddr& addr);
+	void SendMessageToPeer(const Message& msg, Peer& peer);
+	void SendMessageToAllPeer(const Message& msg);
+	void SendPingMessageToAllPeer();
+	void SendPingMessageToStablePeerAddrs();
 private:
 	EpollContainer* m_container;	//连接管理容器
-	CommonProtoParser* m_commonProtoParser;	//协议解析器
+	CommonProtoParser* m_paxosParser;	//paxos业务协议解析器
+	CommonProtoParser* m_signalParser;	//singal业务协议解析器
 
 	std::map<std::string, Peer> m_peers;	//所有加入paxos集群的节点
 
+	std::string m_myid;
 	uint32_t m_localIP;
 	uint16_t m_localPort;
-	uint32_t m_dstIP;
-	uint16_t m_dstPort;
+	uint16_t m_localCPort;
+
+	std::vector<PeerAddr> m_stableAddrs;
 };
