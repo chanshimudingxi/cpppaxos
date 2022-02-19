@@ -55,7 +55,7 @@ void Proposer::receivePromise(const std::string& fromUID, const ProposalID& prop
 {
 	observeProposal(fromUID, proposalID);
 	
-	if ( m_leader || !proposalID == m_proposalID || m_promisesReceived.find(fromUID) != m_promisesReceived.end()) 
+	if ( m_leader || proposalID != m_proposalID || m_promisesReceived.find(fromUID) != m_promisesReceived.end()) 
 		return;
 	//当前prepare请求的响应者ID
 	m_promisesReceived.insert( fromUID );

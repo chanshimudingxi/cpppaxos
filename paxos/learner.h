@@ -9,8 +9,9 @@
 class Learner
 {
 
-struct Proposal 
+struct Proposal
 {
+	Proposal(){}
     Proposal(int acceptCount, int retentionCount, const std::string& value) : 
 		m_acceptCount(acceptCount),m_retentionCount(retentionCount),m_value(value){}
 	~Proposal(){}

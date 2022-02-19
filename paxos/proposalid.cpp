@@ -83,3 +83,8 @@ bool ProposalID::operator>(const ProposalID& id) const
 {
 	return this->compare(id) > 0;
 }
+
+bool ProposalID::operator!=(const ProposalID& id) const
+{
+	return this->compare(id) != 0;
+}

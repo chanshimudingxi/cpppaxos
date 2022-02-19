@@ -122,7 +122,7 @@ void Node::acquireLeadership()
 void Node::receivePrepare(const std::string& fromUID, const ProposalID& proposalID)
 {
 	Paxos::receivePrepare(fromUID, proposalID);
-	if (!proposalID == getProposalID())
+	if (proposalID != getProposalID())
 		m_lastPrepareTimestamp = timestamp();
 }
 
