@@ -18,11 +18,14 @@ Server::~Server(){
 	}
 }
 
-bool Server::Init(uint16_t port){
+bool Server::Init(const std::string& localIP, uint16_t localPort, const std::string& dstIP, uint16_t dstPort){
     if(!m_container->Init()){
         return false;
     }
-	m_port = port;
+	m_localIP = inet_addr(localIP.c_str());
+	m_localPort = localPort;
+	m_dstIP = inet_addr(dstIP.c_str());
+	m_dstPort = dstPort;
 	return true;
 }
 
@@ -45,10 +48,10 @@ bool Server::Listen(int port, int backlog, SocketType type){
 }
 
 bool Server::Run(){
-	if(!Listen(m_port, 10, SocketType::tcp)){
+	if(!Listen(m_localPort, 10, SocketType::tcp)){
 		return false;
 	}
-	if(!Listen(m_port, 10, SocketType::udp)){
+	if(!Listen(m_localPort, 10, SocketType::udp)){
 		return false;
 	}
 
@@ -86,11 +89,7 @@ bool Server::HandlePingMessage(std::shared_ptr<PingMessage> pMsg, SocketBase* s)
 	std::stringstream os;
 	for(int i = 0; i< pMsg->m_myInfo.m_addrs.size(); ++i){
 		ProtoPeerAddr& addr = pMsg->m_myInfo.m_addrs[i];
-		struct in_addr saddr;
-		saddr.s_addr = addr.m_ip;
-		char* sip = inet_ntoa(saddr);
-		os<<"ip:"<<sip<<" port:"<<addr.m_port<<" type:"<<(addr.m_socketType == 0 ? "tcp ": "udp ");
-
+		os<<"ip:"<<Util::UintIP2String(addr.m_ip)<<" port:"<<addr.m_port<<" type:"<<(addr.m_socketType == 0 ? "tcp ": "udp ");
 		if(m_peers.find(peerId) == m_peers.end()){
 			PeerAddr peeraddr;
 			peeraddr.m_ip = addr.m_ip;
@@ -181,8 +180,8 @@ void Server::SendPingMessageToAll(){
 	ping.m_stamp = Util::GetMonoTimeMs();
 	ping.m_myInfo.m_id = "123456789";
 	ProtoPeerAddr addr;
-	addr.m_ip= inet_addr("47.242.161.76");
-	addr.m_port = m_port;
+	addr.m_ip= m_dstIP;
+	addr.m_port = m_dstPort;
 	addr.m_socketType = 0;
 	ping.m_myInfo.m_addrs.push_back(addr);
 	addr.m_socketType = 1;

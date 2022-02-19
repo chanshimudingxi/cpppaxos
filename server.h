@@ -38,7 +38,7 @@ class Server
 public:
     Server();
     ~Server();
-	bool Init(uint16_t port);
+	bool Init(const std::string& localIP, uint16_t localPort, const std::string& dstIP, uint16_t dstPort);
 	bool Run();
 	bool Listen(int port, int backlog, SocketType type);
 
@@ -58,5 +58,8 @@ private:
 
 	std::map<std::string, Peer> m_peers;	//所有加入paxos集群的节点
 
-	uint16_t m_port;
+	uint32_t m_localIP;
+	uint16_t m_localPort;
+	uint32_t m_dstIP;
+	uint16_t m_dstPort;
 };
