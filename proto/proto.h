@@ -2,6 +2,8 @@
 
 #include "message.h"
 #include "net/serializer.h"
+#include "sys/util.h"
+#include "sys/log.h"
 #include <cstddef>
 #include <vector>
 
@@ -46,6 +48,7 @@ struct ProtoPeerAddr{
 		offset += 1;
 		
 		*rSize = offset;
+
 		return true;
 	}
 };
@@ -81,11 +84,12 @@ struct ProtoPeer{
 		offset += 4;
 
 		for(int i=0; i<vsize; ++i){
-			size_t len = 0;
-			if(!m_addrs[i].DecodeFromArray(buf + offset, size-offset, &len)){	
+			ProtoPeerAddr addr;
+			if(!addr.DecodeFromArray(buf + offset, size-offset, rSize)){
 				return false;
 			}
-			offset += len;
+			offset += *rSize;
+			m_addrs.push_back(addr);
 		}
 
 		*rSize = offset;
@@ -115,11 +119,10 @@ struct PingMessage : public Message{
 		}
 		offset += 8;
 
-		size_t len = 0;
-		if(!m_myInfo.DecodeFromArray(buf + offset, size - offset, &len)){
+		if(!m_myInfo.DecodeFromArray(buf + offset, size-offset, rSize)){
 			return false;
 		}
-		offset += len;
+		offset += *rSize;
 
 		*rSize = offset;
 		return true;
