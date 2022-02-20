@@ -158,7 +158,7 @@ void Server::HandlePaxosClose(SocketBase* s, void* instance){
 
 void Server::HandlePaxosClose(SocketBase* s){
 	LOG_INFO("close socket:%p fd:%d peer:%s:%u", s, s->GetFd(), inet_ntoa(s->GetPeerAddr().sin_addr), ntohs(s->GetPeerAddr().sin_port));
-	
+	//to do 依赖socket状态的地方都要清除
 }
 
 void Server::HandleSignalClose(SocketBase* s, void* instance){
@@ -169,6 +169,7 @@ void Server::HandleSignalClose(SocketBase* s, void* instance){
 
 void Server::HandleSignalClose(SocketBase* s){
 	LOG_INFO("close socket:%p fd:%d peer:%s:%u", s, s->GetFd(), inet_ntoa(s->GetPeerAddr().sin_addr), ntohs(s->GetPeerAddr().sin_port));
+	//to do 依赖socket状态的地方都要清除
 }
 
 
