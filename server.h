@@ -18,14 +18,13 @@
 #include "proto/proto.h"
 
 struct PeerAddr{
-	PeerAddr():m_ip(0),m_port(0),m_socketType(SocketType::tcp),m_fd(-1),m_alive(false){}
+	PeerAddr():m_ip(0),m_port(0),m_socketType(SocketType::tcp),m_fd(-1){}
 	~PeerAddr(){}
 
 	uint32_t m_ip;
 	uint16_t m_port;
 	SocketType m_socketType;
 	int m_fd;
-	bool m_alive;
 };
 
 struct Peer{

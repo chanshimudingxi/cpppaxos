@@ -158,6 +158,7 @@ void Server::HandlePaxosClose(SocketBase* s, void* instance){
 
 void Server::HandlePaxosClose(SocketBase* s){
 	LOG_INFO("close socket:%p fd:%d peer:%s:%u", s, s->GetFd(), inet_ntoa(s->GetPeerAddr().sin_addr), ntohs(s->GetPeerAddr().sin_port));
+	
 }
 
 void Server::HandleSignalClose(SocketBase* s, void* instance){
@@ -206,24 +207,16 @@ bool Server::SendMessage(const Message& msg, SocketBase* s){
 }
 
 void Server::SendMessageToPeerAddr(const Message& msg, PeerAddr& addr){
-	if(!addr.m_alive){
-		if(Connect(addr.m_ip, addr.m_port, addr.m_socketType, &addr.m_fd)){
-			addr.m_alive = true;
-		}
-		else{
-			addr.m_alive = false;
-		}
+	if(addr.m_fd == -1){
+		Connect(addr.m_ip, addr.m_port, addr.m_socketType, &addr.m_fd);
 	}
 
-	if(addr.m_alive){
-		SocketBase* pSock = m_container->GetSocket(addr.m_fd);
-		if(nullptr == pSock){
-			addr.m_alive = false;
-			LOG_ERROR("fd:%d get connect failed", addr.m_fd);
-		}
-		else{
-			SendMessage(msg, pSock);
-		}
+	SocketBase* pSock = m_container->GetSocket(addr.m_fd);
+	if(nullptr == pSock){
+		LOG_ERROR("fd:%d get connect failed", addr.m_fd);
+	}
+	else{
+		SendMessage(msg, pSock);
 	}
 }
 

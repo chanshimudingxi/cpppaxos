@@ -12,7 +12,7 @@
 #include "proto.h"
 
 typedef bool (*Message_Callback)(std::shared_ptr<Message> pMsg, SocketBase* s, void* instance);
-typedef bool (*Close_Callback)(SocketBase* s, void* instance);
+typedef void (*Close_Callback)(SocketBase* s, void* instance);
 
 class CommonProtoParser: public ProtoParser{
 public:
