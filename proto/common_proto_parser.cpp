@@ -26,10 +26,10 @@ int CommonProtoParser::PackMessage(const Message& msg, std::string* buffer){
     msg.EncodeToString(&smsg);
     uint32_t size = smsg.size() + 10;
     Serializer::PutUint32(size, buffer);
-    Serializer::PutUint16(1, buffer);
-    Serializer::PutUint32(msg.ProtoID(), buffer);
+    Serializer::PutUint16(msg.ProtoVersion(), buffer); //协议版本
+    Serializer::PutUint32(msg.ProtoID(), buffer);	//协议号
     buffer->append(smsg);
-	//LOG_DEBUG("pack:\n%s", Util::DumpHex(buffer->data(), buffer->size()).c_str());
+	LOG_DEBUG("pack:\n%s", Util::DumpHex(buffer->data(), buffer->size()).c_str());
 
     return size;
 }
@@ -70,13 +70,8 @@ int CommonProtoParser::HandlePacket(const char* data, size_t size, SocketBase* s
 		LOG_ERROR("packet no proto id");
         return -1;
     }
-	//LOG_DEBUG("unpack:\n%s", Util::DumpHex(data, packetSize).c_str());
-
-    // //处理消息
-	// if(protoVersion != 1){
-	// 	LOG_ERROR("packet wrong proto version:%u", protoVersion);
-	// 	return -1;
-	// }
+	
+	LOG_DEBUG("unpack:\n%s", Util::DumpHex(data, packetSize).c_str());
 
 
 	std::shared_ptr<Message> pMsg(MessageFactory::CreateMessage(protoVersion,protoId));

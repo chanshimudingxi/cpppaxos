@@ -84,7 +84,7 @@ bool Server::Run(){
 		m_container->HandleSockets();
 		HandleLoop();
 		uint64_t end = Util::GetMonoTimeUs();
-		LOG_DEBUG("loop once cost:%lu", end - start);
+		//LOG_DEBUG("loop once cost:%lu", end - start);
     }
 }
 
