@@ -13,7 +13,7 @@ Server::Server(){
 	m_signalParser = new CommonProtoParser();
 	assert(nullptr != m_signalParser);
 	m_signalParser->SetMessageCallback(HandleSignalMessage, this);
-	m_paxosParser->SetCloseCallback(HandleSignalClose, this);
+	m_signalParser->SetCloseCallback(HandleSignalClose, this);
 
 	m_lastSendTime = 0;
 }
