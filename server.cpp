@@ -7,11 +7,13 @@ Server::Server(){
 
 	m_paxosParser = new CommonProtoParser();
 	assert(nullptr != m_paxosParser);
-	m_paxosParser->SetCallback(HandlePaxosMessage, this);
+	m_paxosParser->SetMessageCallback(HandlePaxosMessage, this);
+	m_paxosParser->SetCloseCallback(HandlePaxosClose, this);
 
 	m_signalParser = new CommonProtoParser();
 	assert(nullptr != m_signalParser);
-	m_signalParser->SetCallback(HandleSignalMessage, this);
+	m_signalParser->SetMessageCallback(HandleSignalMessage, this);
+	m_paxosParser->SetCloseCallback(HandleSignalClose, this);
 
 	m_lastSendTime = 0;
 }
@@ -46,9 +48,9 @@ bool Server::Init(const std::string& myID, const std::string& localIP, uint16_t 
 	addr.m_socketType = SocketType::tcp;
 	m_stableAddrs.push_back(addr);
 
-	addr.m_port = dstUdpPort;
-	addr.m_socketType = SocketType::udp;
-	m_stableAddrs.push_back(addr);
+	// addr.m_port = dstUdpPort;
+	// addr.m_socketType = SocketType::udp;
+	// m_stableAddrs.push_back(addr);
 
 	return true;
 }
@@ -148,9 +150,30 @@ bool Server::HandlePingMessage(std::shared_ptr<PingMessage> pMsg, SocketBase* s)
 	return true;
 }
 
+void Server::HandlePaxosClose(SocketBase* s, void* instance){
+	if(instance != nullptr){
+		static_cast<Server*>(instance)->HandlePaxosClose(s);
+	}
+}
+
+void Server::HandlePaxosClose(SocketBase* s){
+	LOG_INFO("close socket:%p fd:%d peer:%s:%u", s, s->GetFd(), inet_ntoa(s->GetPeerAddr().sin_addr), ntohs(s->GetPeerAddr().sin_port));
+}
+
+void Server::HandleSignalClose(SocketBase* s, void* instance){
+	if(instance != nullptr){
+		static_cast<Server*>(instance)->HandleSignalClose(s);
+	}
+}
+
+void Server::HandleSignalClose(SocketBase* s){
+	LOG_INFO("close socket:%p fd:%d peer:%s:%u", s, s->GetFd(), inet_ntoa(s->GetPeerAddr().sin_addr), ntohs(s->GetPeerAddr().sin_port));
+}
+
+
 void Server::HandleLoop(){
 	time_t now = time(0);
-	if(m_lastSendTime == 0 || (m_lastSendTime > now && m_lastSendTime + 30 < now ) ){
+	if(m_lastSendTime == 0 || (m_lastSendTime > 0 && m_lastSendTime + 30 < now ) ){
 		SendPingMessageToAllPeer();
 		SendPingMessageToStablePeerAddrs();
 		m_lastSendTime = now;
@@ -204,18 +227,15 @@ void Server::SendMessageToPeerAddr(const Message& msg, PeerAddr& addr){
 	}
 }
 
-void Server::SendMessageToPeer(const Message& msg, Peer& peer){
-	for(int i=0; peer.m_addrs.size(); ++i){
-		PeerAddr& addr = peer.m_addrs[i];
-		SendMessageToPeerAddr(msg, addr);
-	}
-	return;
-}
-
 void Server::SendMessageToAllPeer(const Message& msg){
 	for(std::map<std::string, Peer>::iterator itr = m_peers.begin(); itr!=m_peers.end(); ++itr){
+		std::string peerid = itr->first;
 		Peer& peer = itr->second;
-		SendMessageToPeer(msg, peer);
+		for(int i=0; i < peer.m_addrs.size(); ++i){
+			PeerAddr& peeraddr = peer.m_addrs[i];
+			SendMessageToPeerAddr(msg, peeraddr);
+			LOG_INFO("send ping to %s peer:%s addr[%d] %s:%u", (peeraddr.m_socketType == SocketType::tcp ? "tcp" : "udp"), peerid.c_str(), i, Util::UintIP2String(peeraddr.m_ip).c_str(), peeraddr.m_port);
+		}
 	}
 	return;
 }
@@ -229,9 +249,9 @@ void Server::SendPingMessageToAllPeer(){
 	addr.m_port = m_localTcpPort;
 	addr.m_socketType = 0;//tcp
 	ping.m_myInfo.m_addrs.push_back(addr);
-	addr.m_port = m_localUdpPort;
-	addr.m_socketType = 1;//udp
-	ping.m_myInfo.m_addrs.push_back(addr);
+	// addr.m_port = m_localUdpPort;
+	// addr.m_socketType = 1;//udp
+	// ping.m_myInfo.m_addrs.push_back(addr);
 
 	SendMessageToAllPeer(ping);
 }
@@ -246,14 +266,13 @@ void Server::SendPingMessageToStablePeerAddrs(){
 	addr.m_port = m_localTcpPort;
 	addr.m_socketType = 0;//tcp
 	ping.m_myInfo.m_addrs.push_back(addr);
-	addr.m_port = m_localUdpPort;
-	addr.m_socketType = 1;//udp
-	ping.m_myInfo.m_addrs.push_back(addr);
+	// addr.m_port = m_localUdpPort;
+	// addr.m_socketType = 1;//udp
+	// ping.m_myInfo.m_addrs.push_back(addr);
 
 	for(int i=0; i < m_stableAddrs.size(); ++i){
-		SendMessageToPeerAddr(ping, m_stableAddrs[i]);
-		LOG_INFO("send ping to %s peer[%d] %s:%u", 
-			(m_stableAddrs[i].m_socketType == SocketType::tcp ? "tcp" : "udp"), i, 
-			Util::UintIP2String(m_stableAddrs[i].m_ip).c_str(), m_stableAddrs[i].m_port);
+		PeerAddr& peeraddr = m_stableAddrs[i];
+		SendMessageToPeerAddr(ping, peeraddr);
+		LOG_INFO("send ping to %s addr[%d] %s:%u", (peeraddr.m_socketType == SocketType::tcp ? "tcp" : "udp"), i, Util::UintIP2String(peeraddr.m_ip).c_str(), peeraddr.m_port);
 	}
 }

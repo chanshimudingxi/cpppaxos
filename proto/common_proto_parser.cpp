@@ -8,13 +8,18 @@
 #include "common_proto_parser.h"
 #include <memory>
 
-CommonProtoParser::CommonProtoParser():m_callback(nullptr),m_instance(nullptr){
-
+CommonProtoParser::CommonProtoParser(){
+	m_msgCallback = nullptr;
+	m_msgInstance = nullptr;
+	m_closeCallback = nullptr;
+	m_closeInstance = nullptr;
 }
 
 CommonProtoParser::~CommonProtoParser(){
-	m_callback = nullptr;
-	m_instance = nullptr;
+	m_msgCallback = nullptr;
+	m_msgInstance = nullptr;
+	m_closeCallback = nullptr;
+	m_closeInstance = nullptr;
 }
 
 size_t CommonProtoParser::PacketMaxSize(){
@@ -85,7 +90,12 @@ int CommonProtoParser::HandlePacket(const char* data, size_t size, SocketBase* s
 		return -1;
 	}
 
-	if(m_callback(pMsg, s, m_instance)){
+	if(nullptr == m_msgCallback){
+		LOG_ERROR("message proroVersion:%u protoId:%u no handler", protoVersion, protoId);
+		return -1;
+	}
+
+	if(m_msgCallback(pMsg, s, m_msgInstance)){
 		return packetSize;
 	}
 	else{
@@ -94,9 +104,20 @@ int CommonProtoParser::HandlePacket(const char* data, size_t size, SocketBase* s
 	}
 }
 
+void CommonProtoParser::HandleClose(SocketBase* s){
+	if(nullptr == m_closeCallback){
+		LOG_ERROR("socket close no handler");
+		return;
+	}
+	m_closeCallback(s, m_closeInstance);
+}
 
-void CommonProtoParser::SetCallback(Message_Callback callback, void* instance)
-{
-	m_callback = callback;
-	m_instance = instance;
+void CommonProtoParser::SetMessageCallback(Message_Callback callback, void* instance){
+	m_msgCallback = callback;
+	m_msgInstance = instance;
+}
+
+void CommonProtoParser::SetCloseCallback(Close_Callback callback, void* instance){
+	m_closeCallback = callback;
+	m_closeInstance = instance;
 }

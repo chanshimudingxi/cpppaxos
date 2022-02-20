@@ -45,9 +45,13 @@ public:
 
 	static bool HandlePaxosMessage(std::shared_ptr<Message> pMsg, SocketBase* s, void* instance);
 	bool HandlePaxosMessage(std::shared_ptr<Message> pMsg, SocketBase* s);
+	static void HandlePaxosClose(SocketBase* s, void* instance);
+	void HandlePaxosClose(SocketBase* s);
 
 	static bool HandleSignalMessage(std::shared_ptr<Message> pMsg, SocketBase* s, void* instance);
 	bool HandleSignalMessage(std::shared_ptr<Message> pMsg, SocketBase* s);
+	static void HandleSignalClose(SocketBase* s, void* instance);
+	void HandleSignalClose(SocketBase* s);
 
 	bool HandlePingMessage(std::shared_ptr<PingMessage> pMsg, SocketBase* s);
 
