@@ -16,6 +16,8 @@
 
 #include "proto/common_proto_parser.h"
 #include "proto/proto.h"
+#include "paxos/paxos_node.h"
+#include "paxos/messenger.h"
 
 struct PeerAddr{
 	PeerAddr():m_ip(0),m_port(0),m_socketType(SocketType::tcp),m_fd(-1){}
@@ -32,7 +34,7 @@ struct Peer{
 	std::vector<PeerAddr> m_addrs;
 };
 
-class Server
+class Server : public Messenger
 {
 public:
     Server();
@@ -62,6 +64,38 @@ public:
 	void SendMessageToAllPeer(const Message& msg);
 	void SendPingMessageToAllPeer();
 	void SendPingMessageToStablePeerAddrs();
+
+    //发送prepare请求
+    virtual void sendPrepare(const ProposalID& proposalID){}
+    //发送prepare请求的承诺
+    virtual void sendPromise(const std::string& proposerID, const ProposalID& proposalID, 
+        const ProposalID& previousID, const std::string& acceptValue){}
+    //发送accept请求
+    virtual void sendAccept(const ProposalID&  proposalID, 
+		const std::string& proposalValue){}
+    //发送accept请求的批准
+    virtual void sendAccepted(const ProposalID&  proposalID, 
+		const std::string& acceptedValue){}
+    //解决
+    virtual void onResolution(const ProposalID&  proposalID, 
+		const std::string& value){}
+
+	//发送prepare请求的ack
+	virtual void sendPrepareNACK(const std::string& proposerID, const ProposalID& proposalID, 
+		const ProposalID& promisedID){}
+	//发送accept请求的ack
+	virtual void sendAcceptNACK(const std::string& proposerID, const ProposalID& proposalID, 
+		const ProposalID& promisedID){}
+	//尝试获取leader
+	virtual void onLeadershipAcquired(){}
+
+	//发送心跳
+	virtual void sendHeartbeat(const ProposalID& leaderProposalID){}
+	//丢失主
+	virtual void onLeadershipLost(){}
+	//主变更
+	virtual void onLeadershipChange(const std::string& previousLeaderID, 
+		const std::string& newLeaderID){}
 private:
 	EpollContainer* m_container;	//连接管理容器
 	CommonProtoParser* m_paxosParser;	//paxos业务协议解析器
@@ -77,4 +111,6 @@ private:
 	std::vector<PeerAddr> m_stableAddrs;
 
 	time_t m_lastSendTime;
+
+	PaxosNode* m_paxosNode;
 };

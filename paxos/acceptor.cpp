@@ -1,17 +1,28 @@
 #include "acceptor.h"
 
-Acceptor::Acceptor(const Messenger& messenger)
+Acceptor::Acceptor(std::shared_ptr<Messenger> messenger, const std::string& acceptorID, int livenessWindow)
 {
     m_messenger = messenger;
+	m_acceptorID = acceptorID;
+	m_livenessWindow = livenessWindow;
+	m_lastPrepareTimestamp   = Util::GetMonoTimeUs();
 }
 
-void Acceptor::receivePrepare(const std::string& fromUID, const ProposalID& proposalID) 
+Acceptor::~Acceptor(){}
+
+/**
+ * @brief 接收到prepare请求
+ * 
+ * @param fromID Acceptor的ID
+ * @param proposalID 议题编号
+ */
+void Acceptor::receivePrepare(const std::string& fromID, const ProposalID& proposalID) 
 {
 	if (m_promisedID.isValid() && proposalID == m_promisedID) 
 	{ // duplicate message
 		if (m_active)
 		{
-			m_messenger.sendPromise(fromUID, proposalID, m_acceptedID, m_acceptedValue);
+			m_messenger->sendPromise(fromID, proposalID, m_acceptedID, m_acceptedValue);
 		}
 	}
 	else if (!m_promisedID.isValid() || proposalID > m_promisedID) 
@@ -21,27 +32,35 @@ void Acceptor::receivePrepare(const std::string& fromUID, const ProposalID& prop
 			m_promisedID = proposalID;
 			if (m_active)
 			{
-				m_pendingPromise = fromUID;
+				m_pendingPromise = fromID;
 			}
 		}
 	}
-	else 
+	else
 	{
 		if (m_active)
 		{
-			m_messenger.sendPrepareNACK(fromUID, proposalID, m_promisedID);
+			m_messenger->sendPrepareNACK(fromID, proposalID, m_promisedID);
 		}
 	}
+	m_lastPrepareTimestamp = Util::GetMonoTimeUs();
 }
 
-
-void Acceptor::receiveAcceptRequest(const std::string& fromUID, const ProposalID& proposalID, const std::string& value) 
+/**
+ * @brief 接收到accept请求
+ * 
+ * @param fromID Proposer的ID
+ * @param proposalID 议题编号
+ * @param value 议题value
+ */
+void Acceptor::receiveAcceptRequest(const std::string& fromID, const ProposalID& proposalID, 
+	const std::string& value) 
 {
 	if (m_acceptedID.isValid() && proposalID == m_acceptedID && m_acceptedValue == value) 
 	{
 		if (m_active)
 		{
-			m_messenger.sendAccepted(proposalID, value);
+			m_messenger->sendAccepted(proposalID, value);
 		}
 	}
 	else if (!m_promisedID.isValid() || proposalID > m_promisedID || proposalID == m_promisedID) 
@@ -54,7 +73,7 @@ void Acceptor::receiveAcceptRequest(const std::string& fromUID, const ProposalID
 			
 			if (m_active)
 			{
-				m_pendingAccepted = fromUID;
+				m_pendingAccepted = fromID;
 			}
 		}
 	}
@@ -62,15 +81,15 @@ void Acceptor::receiveAcceptRequest(const std::string& fromUID, const ProposalID
 	{
 		if (m_active)
 		{
-			m_messenger.sendAcceptNACK(fromUID, proposalID, m_promisedID);
+			m_messenger->sendAcceptNACK(fromID, proposalID, m_promisedID);
 		}
 	}
 }
 
-
-Messenger Acceptor::getMessenger() 
+bool Acceptor::isPrepareExpire()
 {
-    return m_messenger;
+	uint64_t waitTime = Util::GetMonoTimeUs() - m_lastPrepareTimestamp;
+	return waitTime > m_livenessWindow;
 }
 
 ProposalID Acceptor::getPromisedID() 
@@ -108,11 +127,11 @@ void Acceptor::persisted()
 	{
 		if (!m_pendingPromise.empty())
 		{
-			m_messenger.sendPromise(m_pendingPromise, m_promisedID, m_acceptedID, m_acceptedValue);
+			m_messenger->sendPromise(m_pendingPromise, m_promisedID, m_acceptedID, m_acceptedValue);
 		}
 		if (!m_pendingAccepted.empty())
 		{
-			m_messenger.sendAccepted(m_acceptedID, m_acceptedValue);
+			m_messenger->sendAccepted(m_acceptedID, m_acceptedValue);
 		}
 	}
 	m_pendingPromise.clear();

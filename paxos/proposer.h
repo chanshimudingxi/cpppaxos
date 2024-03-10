@@ -9,54 +9,48 @@
 class Proposer
 {
 public:
-    /*
-     * @messenger 通信接口
-     * @proposerUID Proposer的ID
-     * @quorumSize 大多数要求的大小
-     */
-    Proposer(const Messenger& messenger, const std::string& proposerUID, int quorumSize);
+    Proposer(std::shared_ptr<Messenger> messenger, const std::string& proposerID, int quorumSize);
     ~Proposer();
 
-    //设置议题值
-    virtual void setProposal(const std::string& value);
-    
-	//prepare请求
-    virtual void prepare();
+    void prepare(bool incrementProposalNumber);
+    void setProposal(const std::string& value);
+    void receivePromise(const std::string& fromID, const ProposalID& proposalID, 
+        const ProposalID& prevAcceptedID, const std::string& prevAcceptedValue);
+    void observeProposal(const std::string& fromID, const ProposalID& proposalID);
+    void receivePrepareNACK(const std::string& fromID, const ProposalID& proposalID, 
+        const ProposalID& promisedID);
+	void receiveAcceptNACK(const std::string& proposerID, const ProposalID& proposalID, const ProposalID& promisedID);
+    void resendAccept();
 
-    /*
-     *收到prepare请求的响应
-     *@proposalID 议题编号
-     *@prevAcceptedID 最大批准议题编号
-     *@prevAcceptedValue 最大批准议题编号对应的议题值
-     */
-    virtual void receivePromise(const std::string& fromUID, const ProposalID& proposalID, const ProposalID& prevAcceptedID, const std::string& prevAcceptedValue);
-
-    Messenger getMessenger();
-    std::string getProposerUID();
+    std::string getProposerID();
     int getQuorumSize();
     ProposalID getProposalID();
     std::string getProposedValue();
     ProposalID getLastAcceptedID();
     int numPromises();
-
-	void prepare(bool incrementProposalNumber);
-	void observeProposal(const std::string& fromUID, const ProposalID& proposalID);
-	void receivePrepareNACK(const std::string& proposerUID, const ProposalID& proposalID, const ProposalID& promisedID);
-	void receiveAcceptNACK(const std::string& proposerUID, const ProposalID& proposalID, const ProposalID& promisedID);
-	void resendAccept();
 	bool isLeader();
 	void setLeader(bool leader);
 	bool isActive();
 	void setActive(bool active);
 private:
-    Messenger m_messenger;
-    std::string m_proposerUID;
+    //网络通信接口
+    std::shared_ptr<Messenger> m_messenger;
+    //Proposer的ID
+    std::string m_proposerID;
+    //达成一致要求的最小Acceptor数量
     int m_quorumSize;
-    ProposalID m_proposalID;    //prepare请求的议题编号
-    std::string m_proposedValue;    //Proposer提出议题的议题值（可以使Acceptor返回的最近被批准的议题值）
-    ProposalID m_lastAcceptedID;    //最近被批准的议题编号
-    std::set<std::string> m_promisesReceived;   //prepare请求响应者Acceptor的ID
 
+    //提出议题的编号
+    ProposalID m_proposalID;
+    //提出议题的value
+    std::string m_proposedValue;
+    //Acceptor批准的最大的议题编号
+    ProposalID m_lastAcceptedID;
+
+    //对当前prepare请求进行承诺的Acceptor列表
+    std::set<std::string> m_promisesReceived;
+    //是否是leader
 	bool m_leader;
+    //是否是活跃的
 	bool m_active;
 };

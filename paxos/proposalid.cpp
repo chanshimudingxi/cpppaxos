@@ -47,15 +47,14 @@ void ProposalID::incrementNumber()
     m_number++;
 }
 
-std::string ProposalID::getUID() const
+std::string ProposalID::getID() const
 {
     return m_uid;
 }
 
 int ProposalID::compare(const ProposalID& id) const
 {
-    if( (m_uid > id.m_uid) ||
-		(m_uid == id.m_uid && m_number > id.m_number))
+    if(m_uid > id.m_uid || m_uid == id.m_uid && m_number > id.m_number)
     {
         return 1;
     }
