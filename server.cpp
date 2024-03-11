@@ -1,7 +1,9 @@
 #include "server.h"
 #include <sstream>
 
-Server::Server(){
+Server::Server(const std::string& myid, int quorumSize):
+	m_paxosNode(shared_from_this(), myid, quorumSize, 10000, 100000, 50000, "")
+{
 	m_container = new EpollContainer(1000, 1000);
 	assert(nullptr != m_container);
 
@@ -15,7 +17,8 @@ Server::Server(){
 	m_signalParser->SetMessageCallback(HandleSignalMessage, this);
 	m_signalParser->SetCloseCallback(HandleSignalClose, this);
 
-	m_lastSendTime = 0;
+	m_myUID = myid;
+	m_quorumSize = quorumSize;
 }
 
 Server::~Server(){
@@ -30,28 +33,21 @@ Server::~Server(){
 	}
 }
 
-bool Server::Init(const std::string& myID, const std::string& localIP, uint16_t localTcpPort, uint16_t localUdpPort, 
+bool Server::Init(const std::string& localIP, uint16_t localTcpPort, uint16_t localUdpPort, 
 	const std::string& dstIP, uint16_t dstTcpPort, uint16_t dstUdpPort){
 
     if(!m_container->Init()){
         return false;
     }
-	m_myid = myID;
 	m_localIP = inet_addr(localIP.c_str());
 	m_localTcpPort = localTcpPort;
 	m_localUdpPort = localUdpPort;
 
 	PeerAddr addr;
 	addr.m_ip = inet_addr(dstIP.c_str());
-
 	addr.m_port = dstTcpPort;
 	addr.m_socketType = SocketType::tcp;
 	m_stableAddrs.push_back(addr);
-
-	// addr.m_port = dstUdpPort;
-	// addr.m_socketType = SocketType::udp;
-	// m_stableAddrs.push_back(addr);
-
 	return true;
 }
 
@@ -100,7 +96,7 @@ bool Server::HandlePaxosMessage(std::shared_ptr<Message> pMsg, SocketBase* s, vo
 bool Server::HandlePaxosMessage(std::shared_ptr<Message> pMsg, SocketBase* s){
 	switch (pMsg->ProtoID()){
 		case PAXOS_PROTO_PING_MESSAGE:
-			return HandlePingMessage(std::dynamic_pointer_cast<PingMessage>(pMsg), s);
+			return HandleHeatBeatMessage(std::dynamic_pointer_cast<HeartbeatMessage>(pMsg), s);
 		default:
 			return false;
 	}
@@ -116,38 +112,10 @@ bool Server::HandleSignalMessage(std::shared_ptr<Message> pMsg, SocketBase* s, v
 bool Server::HandleSignalMessage(std::shared_ptr<Message> pMsg, SocketBase* s){
 	switch (pMsg->ProtoID()){
 		case PAXOS_PROTO_PING_MESSAGE:
-			return HandlePingMessage(std::dynamic_pointer_cast<PingMessage>(pMsg), s);
+			return HandleHeatBeatMessage(std::dynamic_pointer_cast<HeartbeatMessage>(pMsg), s);
 		default:
 			return false;
 	}
-}
-
-bool Server::HandlePingMessage(std::shared_ptr<PingMessage> pMsg, SocketBase* s){
-	uint64_t lastStamp = pMsg->m_stamp;
-	std::string peerId = pMsg->m_myInfo.m_id;
-
-	Peer peer;
-	peer.m_id = peerId;
-	std::stringstream os;
-	for(int i = 0; i< pMsg->m_myInfo.m_addrs.size(); ++i){
-		ProtoPeerAddr& addr = pMsg->m_myInfo.m_addrs[i];
-		os<<"ip:"<<Util::UintIP2String(addr.m_ip)<<" port:"<<addr.m_port<<" type:"<<(addr.m_socketType == 0 ? "tcp ": "udp ");
-		if(m_peers.find(peerId) == m_peers.end()){
-			PeerAddr peeraddr;
-			peeraddr.m_ip = addr.m_ip;
-			peeraddr.m_port = addr.m_port;
-			peeraddr.m_socketType = addr.m_socketType == 0 ? SocketType::tcp : SocketType::udp;
-			peer.m_addrs.push_back(peeraddr);
-		}
-	}
-
-	if(m_peers.find(peerId) == m_peers.end()){
-		m_peers[peerId] = peer;
-	}
-	uint64_t now = Util::GetMonoTimeMs();
-	uint64_t rtt = lastStamp > now ? lastStamp - now : 0;
-	LOG_INFO("peer id:%s rtt:%llums %s", peerId.c_str(), rtt, os.str().c_str());
-	return true;
 }
 
 void Server::HandlePaxosClose(SocketBase* s, void* instance){
@@ -158,7 +126,7 @@ void Server::HandlePaxosClose(SocketBase* s, void* instance){
 
 void Server::HandlePaxosClose(SocketBase* s){
 	LOG_INFO("close socket:%p fd:%d peer:%s:%u", s, s->GetFd(), inet_ntoa(s->GetPeerAddr().sin_addr), ntohs(s->GetPeerAddr().sin_port));
-	//to do 依赖socket状态的地方都要清除
+	//TODO 依赖socket状态的地方都要清除
 }
 
 void Server::HandleSignalClose(SocketBase* s, void* instance){
@@ -169,17 +137,13 @@ void Server::HandleSignalClose(SocketBase* s, void* instance){
 
 void Server::HandleSignalClose(SocketBase* s){
 	LOG_INFO("close socket:%p fd:%d peer:%s:%u", s, s->GetFd(), inet_ntoa(s->GetPeerAddr().sin_addr), ntohs(s->GetPeerAddr().sin_port));
-	//to do 依赖socket状态的地方都要清除
+	//TODO 依赖socket状态的地方都要清除
 }
 
 
 void Server::HandleLoop(){
 	time_t now = time(0);
-	if(m_lastSendTime == 0 || (m_lastSendTime > 0 && m_lastSendTime + 30 < now ) ){
-		SendPingMessageToAllPeer();
-		SendPingMessageToStablePeerAddrs();
-		m_lastSendTime = now;
-	}
+	//TODO
 }
 
 bool Server::Connect(uint32_t ip, int port, SocketType type, int* pfd){
@@ -207,7 +171,7 @@ bool Server::SendMessage(const Message& msg, SocketBase* s){
 	return true;
 }
 
-void Server::SendMessageToPeerAddr(const Message& msg, PeerAddr& addr){
+void Server::SendMessageToPeer(const Message& msg, PeerAddr& addr){
 	if(addr.m_fd == -1){
 		Connect(addr.m_ip, addr.m_port, addr.m_socketType, &addr.m_fd);
 	}
@@ -222,51 +186,176 @@ void Server::SendMessageToPeerAddr(const Message& msg, PeerAddr& addr){
 }
 
 void Server::SendMessageToAllPeer(const Message& msg){
-	for(std::map<std::string, Peer>::iterator itr = m_peers.begin(); itr!=m_peers.end(); ++itr){
+	for(std::map<std::string, PeerAddr>::iterator itr = m_peers.begin(); itr!=m_peers.end(); ++itr){
 		std::string peerid = itr->first;
-		Peer& peer = itr->second;
-		for(int i=0; i < peer.m_addrs.size(); ++i){
-			PeerAddr& peeraddr = peer.m_addrs[i];
-			SendMessageToPeerAddr(msg, peeraddr);
-			LOG_INFO("send ping to %s peer:%s addr[%d] %s:%u", (peeraddr.m_socketType == SocketType::tcp ? "tcp" : "udp"), peerid.c_str(), i, Util::UintIP2String(peeraddr.m_ip).c_str(), peeraddr.m_port);
-		}
+		PeerAddr& peeraddr = itr->second;
+		SendMessageToPeer(msg, peeraddr);
+		LOG_INFO("send ping to %s peer:%s addr %s:%u",
+			(peeraddr.m_socketType == SocketType::tcp ? "tcp" : "udp"), 
+			peerid.c_str(), Util::UintIP2String(peeraddr.m_ip).c_str(), peeraddr.m_port);
 	}
 	return;
 }
 
-void Server::SendPingMessageToAllPeer(){
-	PingMessage ping;
-	ping.m_stamp = Util::GetMonoTimeMs();
-	ping.m_myInfo.m_id = m_myid;
-	ProtoPeerAddr addr;
-	addr.m_ip= m_localIP;
-	addr.m_port = m_localTcpPort;
-	addr.m_socketType = 0;//tcp
-	ping.m_myInfo.m_addrs.push_back(addr);
-	// addr.m_port = m_localUdpPort;
-	// addr.m_socketType = 1;//udp
-	// ping.m_myInfo.m_addrs.push_back(addr);
-
-	SendMessageToAllPeer(ping);
-}
-
-
-void Server::SendPingMessageToStablePeerAddrs(){
-	PingMessage ping;
-	ping.m_stamp = Util::GetMonoTimeMs();
-	ping.m_myInfo.m_id = m_myid;
-	ProtoPeerAddr addr;
-	addr.m_ip= m_localIP;
-	addr.m_port = m_localTcpPort;
-	addr.m_socketType = 0;//tcp
-	ping.m_myInfo.m_addrs.push_back(addr);
-	// addr.m_port = m_localUdpPort;
-	// addr.m_socketType = 1;//udp
-	// ping.m_myInfo.m_addrs.push_back(addr);
-
+void Server::SendMessageToStablePeer(const Message& msg){
 	for(int i=0; i < m_stableAddrs.size(); ++i){
 		PeerAddr& peeraddr = m_stableAddrs[i];
-		SendMessageToPeerAddr(ping, peeraddr);
-		LOG_INFO("send ping to %s addr[%d] %s:%u", (peeraddr.m_socketType == SocketType::tcp ? "tcp" : "udp"), i, Util::UintIP2String(peeraddr.m_ip).c_str(), peeraddr.m_port);
+		SendMessageToPeer(msg, peeraddr);
+		LOG_INFO("send ping to %s addr[%d] %s:%u", 
+			(peeraddr.m_socketType == SocketType::tcp ? "tcp" : "udp"), 
+			i, Util::UintIP2String(peeraddr.m_ip).c_str(), peeraddr.m_port);
 	}
+	return;
+}
+
+bool Server::HandleHeatBeatMessage(std::shared_ptr<HeartbeatMessage> pMsg, SocketBase* s){
+	uint64_t lastStamp = pMsg->m_stamp;
+	const std::string& peerId = pMsg->m_myInfo.m_id;
+
+	std::stringstream os;
+	PPeerAddr& addr = pMsg->m_myInfo.m_addrs[0];
+
+	os<<"ip:"<<Util::UintIP2String(addr.m_ip)
+		<<" port:"<<addr.m_port
+		<<" type:"<<(addr.m_socketType == 0 ? "tcp ": "udp ");
+
+	PeerAddr peeraddr;
+	peeraddr.m_ip = addr.m_ip;
+	peeraddr.m_port = addr.m_port;
+	peeraddr.m_socketType = addr.m_socketType == 0 ? SocketType::tcp : SocketType::udp;
+	peeraddr.m_id = peerId;
+
+	m_peers[peerId] = peeraddr;
+
+	uint64_t now = Util::GetMonoTimeMs();
+	uint64_t rtt = lastStamp > now ? lastStamp - now : 0;
+	LOG_INFO("peer id:%s rtt:%llums %s", peerId.c_str(), rtt, os.str().c_str());
+	return true;
+}
+
+/**
+ * @brief 选择一个Acceptor大多数构成的集合，采用轮训机制
+ * 
+ * @param acceptors 
+ */
+void Server::SelectMajorityAcceptors(std::set<std::string>& acceptors){
+	if(m_peers.size() < m_quorumSize){
+		return;
+	}
+
+	acceptors.clear();
+
+	int cnt = 0;
+	auto itr = m_peers.upper_bound(m_maxChoosenAcceptorID);
+	while(cnt < m_quorumSize){
+		if(itr != m_peers.end()){
+			acceptors.insert(itr->second.m_id);
+			++cnt;
+		}
+		itr == m_peers.end() ? itr = m_peers.begin() : ++itr;
+	}
+}
+
+/**
+ * @brief 发送prepare请求
+ * 
+ * @param proposalID 
+ */
+void Server::sendPrepare(const ProposalID& proposalID){
+	SelectMajorityAcceptors(m_majorityAcceptors);
+	if(m_majorityAcceptors.empty()){
+		LOG_ERROR("choosen acceptors failed");
+		return;
+	}
+	PrepareMessage prepare;
+	prepare.m_proposalID.m_number = proposalID.m_number;
+	prepare.m_proposalID.m_uid = proposalID.m_uid;
+	prepare.m_myInfo.m_id = m_myUID;
+	PPeerAddr addr;
+	addr.m_ip= m_localIP;
+	addr.m_port = m_localTcpPort;
+	addr.m_socketType = 0;//tcp
+	prepare.m_myInfo.m_addrs.push_back(addr);
+
+	for(auto acceptorUID : m_majorityAcceptors){
+		auto peerItr = m_peers.find(acceptorUID);
+		if(peerItr != m_peers.end()){
+			PeerAddr& peer = peerItr->second;
+			SendMessageToPeer(prepare, peer);
+		}
+	}
+}
+
+//发送prepare请求的承诺
+void Server::sendPromise(const std::string& proposerUID, const ProposalID& proposalID, 
+	const ProposalID& acceptID, const std::string& acceptValue){
+
+}
+
+//发送accept请求
+void Server::sendAccept(const ProposalID&  proposalID, 
+	const std::string& proposalValue){
+
+}
+
+//发送accept请求的批准
+void Server::sendAccepted(const ProposalID&  proposalID, 
+	const std::string& acceptedValue)
+{
+	
+}
+
+//解决
+void Server::onResolution(const ProposalID&  proposalID, 
+	const std::string& value)
+{
+
+}
+
+//发送prepare请求的ack
+void Server::sendPrepareNACK(const std::string& proposerUID, const ProposalID& proposalID, 
+	const ProposalID& promisedID)
+{
+
+}
+//发送accept请求的ack
+void Server::sendAcceptNACK(const std::string& proposerUID, const ProposalID& proposalID, 
+	const ProposalID& promisedID)
+{
+
+}
+
+//尝试获取leader
+void Server::onLeadershipAcquired()
+{
+
+}
+
+//发送心跳
+void Server::sendHeartbeat(const ProposalID& leaderProposalID)
+{
+	HeartbeatMessage heartbeat;
+	heartbeat.m_stamp = Util::GetMonoTimeMs();
+	heartbeat.m_myInfo.m_id = m_myUID;
+	PPeerAddr addr;
+	addr.m_ip= m_localIP;
+	addr.m_port = m_localTcpPort;
+	addr.m_socketType = 0;//tcp
+	heartbeat.m_myInfo.m_addrs.push_back(addr);
+
+	SendMessageToAllPeer(heartbeat);
+	SendMessageToStablePeer(heartbeat);
+}
+
+//丢失主
+void Server::onLeadershipLost()
+{
+
+}
+
+//主变更
+void Server::onLeadershipChange(const std::string& previousLeaderID, 
+	const std::string& newLeaderID)
+{
+
 }

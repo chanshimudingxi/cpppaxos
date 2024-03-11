@@ -8,8 +8,8 @@ public:
     //发送prepare请求
     virtual void sendPrepare(const ProposalID& proposalID) = 0;
     //发送prepare请求的承诺
-    virtual void sendPromise(const std::string& proposerID, const ProposalID& proposalID, 
-        const ProposalID& previousID, const std::string& acceptValue) = 0;
+    virtual void sendPromise(const std::string& proposerUID, const ProposalID& proposalID, 
+        const ProposalID& acceptID, const std::string& acceptValue) = 0;
     //发送accept请求
     virtual void sendAccept(const ProposalID&  proposalID, 
 		const std::string& proposalValue) = 0;
@@ -21,10 +21,10 @@ public:
 		const std::string& value) = 0;
 
 	//发送prepare请求的ack
-	virtual void sendPrepareNACK(const std::string& proposerID, const ProposalID& proposalID, 
+	virtual void sendPrepareNACK(const std::string& proposerUID, const ProposalID& proposalID, 
 		const ProposalID& promisedID)= 0;
 	//发送accept请求的ack
-	virtual void sendAcceptNACK(const std::string& proposerID, const ProposalID& proposalID, 
+	virtual void sendAcceptNACK(const std::string& proposerUID, const ProposalID& proposalID, 
 		const ProposalID& promisedID) = 0;
 	//尝试获取leader
 	virtual void onLeadershipAcquired() = 0;

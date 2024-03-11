@@ -1,9 +1,9 @@
 #include "acceptor.h"
 
-Acceptor::Acceptor(std::shared_ptr<Messenger> messenger, const std::string& acceptorID, int livenessWindow)
+Acceptor::Acceptor(std::shared_ptr<Messenger> messenger, const std::string& acceptorUID, int livenessWindow)
 {
     m_messenger = messenger;
-	m_acceptorID = acceptorID;
+	m_acceptorUID = acceptorUID;
 	m_livenessWindow = livenessWindow;
 	m_lastPrepareTimestamp   = Util::GetMonoTimeUs();
 }
@@ -13,16 +13,16 @@ Acceptor::~Acceptor(){}
 /**
  * @brief 接收到prepare请求
  * 
- * @param fromID Acceptor的ID
+ * @param fromUID Acceptor的ID
  * @param proposalID 议题编号
  */
-void Acceptor::receivePrepare(const std::string& fromID, const ProposalID& proposalID) 
+void Acceptor::receivePrepare(const std::string& fromUID, const ProposalID& proposalID) 
 {
 	if (m_promisedID.isValid() && proposalID == m_promisedID) 
 	{ // duplicate message
 		if (m_active)
 		{
-			m_messenger->sendPromise(fromID, proposalID, m_acceptedID, m_acceptedValue);
+			m_messenger->sendPromise(fromUID, proposalID, m_acceptedID, m_acceptedValue);
 		}
 	}
 	else if (!m_promisedID.isValid() || proposalID > m_promisedID) 
@@ -32,7 +32,7 @@ void Acceptor::receivePrepare(const std::string& fromID, const ProposalID& propo
 			m_promisedID = proposalID;
 			if (m_active)
 			{
-				m_pendingPromise = fromID;
+				m_pendingPromise = fromUID;
 			}
 		}
 	}
@@ -40,7 +40,7 @@ void Acceptor::receivePrepare(const std::string& fromID, const ProposalID& propo
 	{
 		if (m_active)
 		{
-			m_messenger->sendPrepareNACK(fromID, proposalID, m_promisedID);
+			m_messenger->sendPrepareNACK(fromUID, proposalID, m_promisedID);
 		}
 	}
 	m_lastPrepareTimestamp = Util::GetMonoTimeUs();
@@ -49,11 +49,11 @@ void Acceptor::receivePrepare(const std::string& fromID, const ProposalID& propo
 /**
  * @brief 接收到accept请求
  * 
- * @param fromID Proposer的ID
+ * @param fromUID Proposer的ID
  * @param proposalID 议题编号
  * @param value 议题value
  */
-void Acceptor::receiveAcceptRequest(const std::string& fromID, const ProposalID& proposalID, 
+void Acceptor::receiveAcceptRequest(const std::string& fromUID, const ProposalID& proposalID, 
 	const std::string& value) 
 {
 	if (m_acceptedID.isValid() && proposalID == m_acceptedID && m_acceptedValue == value) 
@@ -73,7 +73,7 @@ void Acceptor::receiveAcceptRequest(const std::string& fromID, const ProposalID&
 			
 			if (m_active)
 			{
-				m_pendingAccepted = fromID;
+				m_pendingAccepted = fromUID;
 			}
 		}
 	}
@@ -81,7 +81,7 @@ void Acceptor::receiveAcceptRequest(const std::string& fromID, const ProposalID&
 	{
 		if (m_active)
 		{
-			m_messenger->sendAcceptNACK(fromID, proposalID, m_promisedID);
+			m_messenger->sendAcceptNACK(fromUID, proposalID, m_promisedID);
 		}
 	}
 }

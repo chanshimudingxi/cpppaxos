@@ -11,7 +11,7 @@ public:
 		if(protoVersion == PAXOS_PROTO){
 			switch(protoId){
 			case PAXOS_PROTO_PING_MESSAGE:
-				pMsg = new PingMessage(protoVersion, protoId);
+				pMsg = new HeartbeatMessage(protoVersion, protoId);
 				break;
 			default:
 				break;

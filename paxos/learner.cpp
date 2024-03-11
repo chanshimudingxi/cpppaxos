@@ -1,9 +1,9 @@
 #include "learner.h"
 
-Learner::Learner(std::shared_ptr<Messenger> messenger, const std::string& learnerID, int quorumSize ) 
+Learner::Learner(std::shared_ptr<Messenger> messenger, const std::string& learnerUID, int quorumSize ) 
 {
     m_messenger  = messenger;
-    m_learnerID = learnerID;
+    m_learnerUID = learnerUID;
     m_quorumSize = quorumSize;
 }
 
@@ -23,11 +23,11 @@ bool Learner::isComplete()
 
 /**
  * @brief 
- * @fromID Acceptor的ID
+ * @fromUID Acceptor的ID
  * @proposalID accept请求携带的议题编号
  * @acceptedValue accept请求携带的议题值
  */
-void Learner::receiveAccepted(const std::string& fromID, const ProposalID& proposalID, 
+void Learner::receiveAccepted(const std::string& fromUID, const ProposalID& proposalID, 
     const std::string& acceptedValue) 
 {
 	//状态机已经结束
@@ -42,13 +42,13 @@ void Learner::receiveAccepted(const std::string& fromID, const ProposalID& propo
     }
 
 	//Acceptor的新议题的编号小于等于老议题编号，直接丢弃accept请求
-    auto itrOld = m_acceptors.find(fromID);
+    auto itrOld = m_acceptors.find(fromUID);
     if(itrOld != m_acceptors.end() && (proposalID < itrOld->second || proposalID == itrOld->second))
     {
         return;
     }
     //记录Acceptor批准的新的议题状态
-    m_acceptors[fromID] = proposalID;
+    m_acceptors[fromUID] = proposalID;
     
     //更新老议题的状态
     if (itrOld != m_acceptors.end())

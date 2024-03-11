@@ -10,11 +10,11 @@
 class Acceptor 
 {
 public:
-	Acceptor(std::shared_ptr<Messenger> messenger, const std::string& acceptorID, int livenessWindow);
+	Acceptor(std::shared_ptr<Messenger> messenger, const std::string& acceptorUID, int livenessWindow);
 	~Acceptor();
 
-	void receivePrepare(const std::string& fromID, const ProposalID& proposalID);
-	void receiveAcceptRequest(const std::string& fromID, const ProposalID& proposalID, 
+	void receivePrepare(const std::string& fromUID, const ProposalID& proposalID);
+	void receiveAcceptRequest(const std::string& fromUID, const ProposalID& proposalID, 
 		const std::string& value);
 	bool isPrepareExpire();
 
@@ -29,7 +29,7 @@ public:
 	void setActive(bool active);
 private:
     std::shared_ptr<Messenger> m_messenger;
-	std::string  m_acceptorID;
+	std::string  m_acceptorUID;
 	//保活窗口的大小，单位微秒
 	uint64_t m_livenessWindow; 
 	//对prepare请求做出承诺的议题编号

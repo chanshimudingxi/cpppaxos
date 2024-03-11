@@ -87,22 +87,22 @@ void PaxosNode::pollLiveness()
 	}
 }
 
-void PaxosNode::receiveHeartbeat(const std::string& fromID, const ProposalID& proposalID)
+void PaxosNode::receiveHeartbeat(const std::string& fromUID, const ProposalID& proposalID)
 {
 	if (!m_leaderProposalID.isValid() || proposalID > m_leaderProposalID) {
 		m_acquiringLeadership = false;
 		std::string oldLeaderID = m_leaderID;
 		
-		m_leaderID        = fromID;
+		m_leaderID        = fromUID;
 		m_leaderProposalID = proposalID;
 		
-		if (m_proposer.isLeader() && fromID != m_proposer.getProposerID()) {
+		if (m_proposer.isLeader() && fromUID != m_proposer.getProposerID()) {
 			m_proposer.setLeader(false);
 			m_messenger->onLeadershipLost();
-			m_proposer.observeProposal(fromID, proposalID);
+			m_proposer.observeProposal(fromUID, proposalID);
 		}
 		
-		m_messenger->onLeadershipChange(oldLeaderID, fromID);
+		m_messenger->onLeadershipChange(oldLeaderID, fromUID);
 	}
 	
 	if (m_leaderProposalID.isValid() && m_leaderProposalID == proposalID)
@@ -133,16 +133,16 @@ void PaxosNode::acquireLeadership()
 	}
 }
 
-void PaxosNode::receivePrepare(const std::string& fromID, const ProposalID& proposalID)
+void PaxosNode::receivePrepare(const std::string& fromUID, const ProposalID& proposalID)
 {
-	m_acceptor.receivePrepare(fromID, proposalID);
+	m_acceptor.receivePrepare(fromUID, proposalID);
 }
 
-void PaxosNode::receivePromise(const std::string& fromID, const ProposalID& proposalID, const ProposalID& prevAcceptedID, const std::string& prevAcceptedValue)
+void PaxosNode::receivePromise(const std::string& fromUID, const ProposalID& proposalID, const ProposalID& prevAcceptedID, const std::string& prevAcceptedValue)
 {
 	std::string preLeaderID = m_leaderID;
 	
-	m_proposer.receivePromise(fromID, proposalID, prevAcceptedID, prevAcceptedValue);
+	m_proposer.receivePromise(fromUID, proposalID, prevAcceptedID, prevAcceptedValue);
 	
 	if (preLeaderID.empty() && m_proposer.isLeader()) 
 	{
@@ -158,9 +158,9 @@ void PaxosNode::receivePromise(const std::string& fromID, const ProposalID& prop
 	}
 }
 
-void PaxosNode::receivePrepareNACK(const std::string& proposerID, const ProposalID& proposalID, const ProposalID& promisedID)
+void PaxosNode::receivePrepareNACK(const std::string& proposerUID, const ProposalID& proposalID, const ProposalID& promisedID)
 {
-	m_proposer.receivePrepareNACK(proposerID, proposalID, promisedID);
+	m_proposer.receivePrepareNACK(proposerUID, proposalID, promisedID);
 	
 	if (m_acquiringLeadership)
 	{
@@ -168,12 +168,12 @@ void PaxosNode::receivePrepareNACK(const std::string& proposerID, const Proposal
 	}		
 }
 
-void PaxosNode::receiveAcceptNACK(const std::string& proposerID, const ProposalID& proposalID, const ProposalID& promisedID)
+void PaxosNode::receiveAcceptNACK(const std::string& proposerUID, const ProposalID& proposalID, const ProposalID& promisedID)
 {
-	m_proposer.receiveAcceptNACK(proposerID, proposalID, promisedID);
+	m_proposer.receiveAcceptNACK(proposerUID, proposalID, promisedID);
 	
 	if (proposalID == m_proposer.getProposalID())
-		m_acceptNACKs.insert(proposerID);
+		m_acceptNACKs.insert(proposerUID);
 	
 	if (m_proposer.isLeader() && m_acceptNACKs.size() >= m_proposer.getQuorumSize()) 
 	{
@@ -182,6 +182,6 @@ void PaxosNode::receiveAcceptNACK(const std::string& proposerID, const ProposalI
 		m_leaderProposalID = ProposalID();
 		m_messenger->onLeadershipLost();
 		m_messenger->onLeadershipChange(m_proposer.getProposerID(), m_leaderID);
-		m_proposer.observeProposal(proposerID, proposalID);
+		m_proposer.observeProposal(proposerUID, proposalID);
 	}
 }

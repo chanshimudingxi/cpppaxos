@@ -66,8 +66,8 @@ int main(int argc, char** argv){
 		dstUdpPort = 20001;
 	}
 
-	Server server;
-	if(!server.Init(mySID, localSip, localTcpPort, localUdpPort, dstSip, dstTcpPort, dstUdpPort)){
+	Server server(mySID, 3);
+	if(!server.Init(localSip, localTcpPort, localUdpPort, dstSip, dstTcpPort, dstUdpPort)){
 		return -1;
 	}
 	if(!server.Run()){

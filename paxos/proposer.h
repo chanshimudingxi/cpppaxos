@@ -9,17 +9,17 @@
 class Proposer
 {
 public:
-    Proposer(std::shared_ptr<Messenger> messenger, const std::string& proposerID, int quorumSize);
+    Proposer(std::shared_ptr<Messenger> messenger, const std::string& proposerUID, int quorumSize);
     ~Proposer();
 
     void prepare(bool incrementProposalNumber);
     void setProposal(const std::string& value);
-    void receivePromise(const std::string& fromID, const ProposalID& proposalID, 
+    void receivePromise(const std::string& fromUID, const ProposalID& proposalID, 
         const ProposalID& prevAcceptedID, const std::string& prevAcceptedValue);
-    void observeProposal(const std::string& fromID, const ProposalID& proposalID);
-    void receivePrepareNACK(const std::string& fromID, const ProposalID& proposalID, 
+    void observeProposal(const std::string& fromUID, const ProposalID& proposalID);
+    void receivePrepareNACK(const std::string& fromUID, const ProposalID& proposalID, 
         const ProposalID& promisedID);
-	void receiveAcceptNACK(const std::string& proposerID, const ProposalID& proposalID, const ProposalID& promisedID);
+	void receiveAcceptNACK(const std::string& proposerUID, const ProposalID& proposalID, const ProposalID& promisedID);
     void resendAccept();
 
     std::string getProposerID();
