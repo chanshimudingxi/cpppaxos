@@ -5,15 +5,18 @@
 #include "sys/logger.h"
 #include <cstddef>
 #include <vector>
+#include <sstream>
+#include <set>
 
 enum{
 	PAXOS_PROTO_PING_MESSAGE = 1,
-	PAXOS_PROTO_PREPARE_MESSAGE = 2,
-	PAXOS_PROTO_PROMISE_MESSAGE = 3,
-	PAXOS_PROTO_ACCEPT_MESSAGE = 4,
-	PAXOS_PROTO_PERMIT_MESSAGE = 5,
-	PAXOS_PROTO_PREPARE_ACK_MESSAGE = 6,
-	PAXOS_PROTO_ACCEPT_ACK_MESSAGE = 7,
+	PAXOS_PROTO_PING_MESSAGE_RSP,
+	PAXOS_PROTO_PREPARE_MESSAGE,
+	PAXOS_PROTO_PROMISE_MESSAGE,
+	PAXOS_PROTO_ACCEPT_MESSAGE,
+	PAXOS_PROTO_PERMIT_MESSAGE,
+	PAXOS_PROTO_PREPARE_ACK_MESSAGE,
+	PAXOS_PROTO_ACCEPT_ACK_MESSAGE,
 };
 
 struct PPeerAddr : public Marshallable{
@@ -28,18 +31,65 @@ struct PPeerAddr : public Marshallable{
 	virtual void unmarshal(const Unpack &up){
 		up >> m_ip >> m_port >> m_socketType;
 	}
+
+	bool operator !=(const PPeerAddr& addr) const{
+		return m_ip != addr.m_ip || m_port != addr.m_port || m_socketType != addr.m_socketType;
+	}
+	bool operator ==(const PPeerAddr& addr) const{
+		return m_ip == addr.m_ip && m_port == addr.m_port && m_socketType == addr.m_socketType;
+	}
+	bool operator <(const PPeerAddr& addr) const{
+		if(m_ip < addr.m_ip){
+			return true;
+		}else if(m_ip == addr.m_ip){
+			if(m_port < addr.m_port){
+				return true;
+			}else if(m_port == addr.m_port){
+				return m_socketType < addr.m_socketType;
+			}
+		}
+		return false;
+	}
+	bool operator >(const PPeerAddr& addr) const{
+		if(m_ip > addr.m_ip){
+			return true;
+		}else if(m_ip == addr.m_ip){
+			if(m_port > addr.m_port){
+				return true;
+			}else if(m_port == addr.m_port){
+				return m_socketType > addr.m_socketType;
+			}
+		}
+		return false;
+	}
+
+	bool operator <=(const PPeerAddr& addr) const{
+		return *this < addr || *this == addr;
+	}
+
+	bool operator >=(const PPeerAddr& addr) const{
+		return *this > addr || *this == addr;
+	}
+
+	std::string toString() const{
+		std::stringstream os;
+		os<<"ip:"<<Util::UintIP2String(m_ip)
+			<<" port:"<<m_port
+			<<" type:"<<(m_socketType == 0 ? "tcp": "udp");
+		return os.str();
+	}
 };
 
 struct PPeer : public Marshallable{
 	std::string m_id;
-	std::vector<PPeerAddr> m_addrs;
+	PPeerAddr m_addr;
 
 	virtual void marshal(Pack & pk) const{
-		pk << m_id << m_addrs;
+		pk << m_id << m_addr;
 	}
 
 	virtual void unmarshal(const Unpack &up){
-		up >> m_id >> m_addrs;
+		up >> m_id >> m_addr;
 	}
 };
 
@@ -47,15 +97,29 @@ struct PPeer : public Marshallable{
 //peer之间心跳协议
 struct HeartbeatMessage : public Marshallable{
 	enum{cmd = PAXOS_PROTO_PING_MESSAGE};
-	uint64_t m_stamp;
-	PPeer m_myInfo;
+	uint64_t m_timestamp;
+	PPeer m_myinfo;
 
 	virtual void marshal(Pack & pk) const{
-		pk << m_stamp << m_myInfo;
+		pk << m_timestamp << m_myinfo;
 	}
 
 	virtual void unmarshal(const Unpack &up){
-		up >> m_stamp >> m_myInfo;
+		up >> m_timestamp >> m_myinfo;
+	}
+};
+
+struct HeartbeatMessageRsp : public Marshallable{
+	enum{cmd = PAXOS_PROTO_PING_MESSAGE_RSP};
+	uint64_t m_timestamp;
+	PPeer m_myinfo;
+
+	virtual void marshal(Pack & pk) const{
+		pk << m_timestamp << m_myinfo;
+	}
+
+	virtual void unmarshal(const Unpack &up){
+		up >> m_timestamp >> m_myinfo;
 	}
 };
 

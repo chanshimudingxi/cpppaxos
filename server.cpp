@@ -1,5 +1,4 @@
 #include "server.h"
-#include <sstream>
 #include <memory>
 #include "paxos/proto.h"
 
@@ -66,7 +65,6 @@ bool Server::Run(){
 	while(true){
 		uint64_t start = Util::GetMonoTimeUs();
 		m_container->HandleSockets();
-		HandleLooper();
 		uint64_t end = Util::GetMonoTimeUs();
     }
 }
@@ -176,10 +174,66 @@ bool Server::HandleMessage(const PacketHeader& header, std::shared_ptr<Marshalla
 	return ret;
 }
 
+bool Server::HandleHeatBeatMessage(const PacketHeader& header, std::shared_ptr<HeartbeatMessage> pMsg, SocketBase* s){
+	const std::string& peerId = pMsg->m_myinfo.m_id;
+	const PPeerAddr& peerAddr = pMsg->m_myinfo.m_addr;
+	LOG_INFO("peer id:%s %s", peerId.c_str(), peerAddr.toString().c_str());
 
-void Server::HandleLooper(){
-	time_t now = time(0);
-	//TODO
+	PeerAddr addr;
+	addr.m_ip = peerAddr.m_ip;
+	addr.m_port = peerAddr.m_port;
+	addr.m_socketType = peerAddr.m_socketType == 0 ? SocketType::tcp : SocketType::udp;
+	auto itr = m_peers.find(peerId);
+	if(itr != m_peers.end()){
+		itr->second.m_addr = addr;
+	}
+	else{
+		Peer peerinfo;
+		peerinfo.m_addr = addr;
+		peerinfo.m_id = peerId;
+		m_peers[peerId] = peerinfo;
+	}
+
+	//TODO send HeartbeatMessageRsp
+	HeartbeatMessageRsp rsp;
+	rsp.m_timestamp = pMsg->m_timestamp;
+	rsp.m_myinfo.m_id = m_myUID;
+	rsp.m_myinfo.m_addr = GetMyTcpAddr();
+	SendMessage(HeartbeatMessageRsp::cmd, rsp, s);
+	return true;
+}
+
+bool Server::HandleHeatBeatMessage(const PacketHeader& header, std::shared_ptr<HeartbeatMessageRsp> pMsg, SocketBase* s){
+	uint64_t lastStamp = pMsg->m_timestamp;
+	uint64_t now = Util::GetMonoTimeMs();
+	uint64_t rtt = now > lastStamp ? now - lastStamp : 0;
+	const std::string& peerId = pMsg->m_myinfo.m_id;
+	const PPeerAddr& peerAddr = pMsg->m_myinfo.m_addr;
+	LOG_INFO("peer id:%s %s rtt:%llu(ms)", peerId.c_str(), peerAddr.toString().c_str(), rtt);
+
+	PeerAddr addr;
+	addr.m_ip = peerAddr.m_ip;
+	addr.m_port = peerAddr.m_port;
+	addr.m_socketType = peerAddr.m_socketType == 0 ? SocketType::tcp : SocketType::udp;
+	auto itr = m_peers.find(peerId);
+	if(itr != m_peers.end()){
+		if(itr->second.m_addr == addr){
+			itr->second.m_addr.m_rtt = (itr->second.m_addr.m_rtt * 3 + rtt)/4;
+		}
+		else{
+			itr->second.m_addr.m_rtt = rtt;
+		}
+		itr->second.m_addr = addr;
+	}
+	else{
+		addr.m_rtt = rtt;
+		Peer peerinfo;
+		peerinfo.m_addr = addr;
+		peerinfo.m_id = peerId;
+		m_peers[peerId] = peerinfo;
+	}
+
+	return true;
 }
 
 bool Server::Connect(uint32_t ip, int port, SocketType type, int* pfd){
@@ -222,13 +276,11 @@ void Server::SendMessageToPeer(uint16_t cmd, const Marshallable& msg, PeerAddr& 
 }
 
 void Server::SendMessageToAllPeer(uint16_t cmd, const Marshallable& msg){
-	for(std::map<std::string, PeerAddr>::iterator itr = m_peers.begin(); itr!=m_peers.end(); ++itr){
-		std::string peerid = itr->first;
-		PeerAddr& peeraddr = itr->second;
-		SendMessageToPeer(cmd, msg, peeraddr);
-		LOG_INFO("send ping to %s peer:%s addr %s:%u",
-			(peeraddr.m_socketType == SocketType::tcp ? "tcp" : "udp"), 
-			peerid.c_str(), Util::UintIP2String(peeraddr.m_ip).c_str(), peeraddr.m_port);
+	for(std::map<std::string, Peer>::iterator itr = m_peers.begin(); itr!=m_peers.end(); ++itr){
+		const std::string& peerid = itr->first;
+		Peer& peer = itr->second;
+		SendMessageToPeer(cmd, msg, peer.m_addr);
+		LOG_INFO("send ping to peer %s %s", peerid.c_str(), peer.m_addr.toString().c_str());
 	}
 	return;
 }
@@ -237,36 +289,26 @@ void Server::SendMessageToStablePeer(uint16_t cmd, const Marshallable& msg){
 	for(int i=0; i < m_stableAddrs.size(); ++i){
 		PeerAddr& peeraddr = m_stableAddrs[i];
 		SendMessageToPeer(cmd, msg, peeraddr);
-		LOG_INFO("send ping to %s addr[%d] %s:%u", 
-			(peeraddr.m_socketType == SocketType::tcp ? "tcp" : "udp"), 
-			i, Util::UintIP2String(peeraddr.m_ip).c_str(), peeraddr.m_port);
+		LOG_INFO("send ping to stable addr[%d] %s", i, peeraddr.toString().c_str());
 	}
 	return;
 }
 
-bool Server::HandleHeatBeatMessage(const PacketHeader& header, std::shared_ptr<HeartbeatMessage> pMsg, SocketBase* s){
-	uint64_t lastStamp = pMsg->m_stamp;
-	const std::string& peerId = pMsg->m_myInfo.m_id;
 
-	std::stringstream os;
-	PPeerAddr& addr = pMsg->m_myInfo.m_addrs[0];
+PPeerAddr Server::GetMyTcpAddr(){
+	PPeerAddr addr;
+	addr.m_ip = m_localIP;
+	addr.m_port = m_localTcpPort;
+	addr.m_socketType = 0;
+	return addr;
+}
 
-	os<<"ip:"<<Util::UintIP2String(addr.m_ip)
-		<<" port:"<<addr.m_port
-		<<" type:"<<(addr.m_socketType == 0 ? "tcp ": "udp ");
-
-	PeerAddr peeraddr;
-	peeraddr.m_ip = addr.m_ip;
-	peeraddr.m_port = addr.m_port;
-	peeraddr.m_socketType = addr.m_socketType == 0 ? SocketType::tcp : SocketType::udp;
-	peeraddr.m_id = peerId;
-
-	m_peers[peerId] = peeraddr;
-
-	uint64_t now = Util::GetMonoTimeMs();
-	uint64_t rtt = lastStamp > now ? lastStamp - now : 0;
-	LOG_INFO("peer id:%s rtt:%llums %s", peerId.c_str(), rtt, os.str().c_str());
-	return true;
+PPeerAddr Server::GetMyUdpAddr(){
+	PPeerAddr addr;
+	addr.m_ip = m_localIP;
+	addr.m_port = m_localUdpPort;
+	addr.m_socketType = 1;
+	return addr;
 }
 
 /**
@@ -307,17 +349,13 @@ void Server::sendPrepare(const ProposalID& proposalID){
 	prepare.m_proposalID.m_number = proposalID.m_number;
 	prepare.m_proposalID.m_uid = proposalID.m_uid;
 	prepare.m_myInfo.m_id = m_myUID;
-	PPeerAddr addr;
-	addr.m_ip= m_localIP;
-	addr.m_port = m_localTcpPort;
-	addr.m_socketType = 0;//tcp
-	prepare.m_myInfo.m_addrs.push_back(addr);
+	prepare.m_myInfo.m_addr = GetMyTcpAddr();
 
 	for(auto acceptorUID : m_majorityAcceptors){
 		auto peerItr = m_peers.find(acceptorUID);
 		if(peerItr != m_peers.end()){
-			PeerAddr& peer = peerItr->second;
-			SendMessageToPeer(PrepareMessage::cmd, prepare, peer);
+			auto& peer = peerItr->second;
+			SendMessageToPeer(PrepareMessage::cmd, prepare, peer.m_addr);
 		}
 	}
 }
@@ -333,11 +371,7 @@ void Server::sendPrepare(const ProposalID& proposalID){
 void Server::sendPromise(const std::string& toUID, const ProposalID& proposalID, 
 	const ProposalID& acceptID, const std::string& acceptValue){
 	PromiseMessage promise;
-	PPeerAddr addr;
-	addr.m_ip= m_localIP;
-	addr.m_port = m_localTcpPort;
-	addr.m_socketType = 0;//tcp
-	promise.m_myInfo.m_addrs.push_back(addr);
+	promise.m_myInfo.m_addr = GetMyTcpAddr();
 	promise.m_myInfo.m_id = m_myUID;
 
 	promise.m_proposalID.m_number = proposalID.m_number;
@@ -348,8 +382,11 @@ void Server::sendPromise(const std::string& toUID, const ProposalID& proposalID,
 
 	auto peerItr = m_peers.find(toUID);
 	if(peerItr != m_peers.end()){
-		PeerAddr& peer = peerItr->second;
-		SendMessageToPeer(PromiseMessage::cmd, promise, peer);
+		auto& peer = peerItr->second;
+		SendMessageToPeer(PromiseMessage::cmd, promise, peer.m_addr);
+	}
+	else{
+		LOG_ERROR("peer %s not found", toUID.c_str());
 	}
 }
 
@@ -362,11 +399,7 @@ void Server::sendPromise(const std::string& toUID, const ProposalID& proposalID,
 void Server::sendAccept(const ProposalID&  proposalID, 
 	const std::string& proposalValue){
 	AcceptMessage accept;
-	PPeerAddr addr;
-	addr.m_ip= m_localIP;
-	addr.m_port = m_localTcpPort;
-	addr.m_socketType = 0;//tcp
-	accept.m_myInfo.m_addrs.push_back(addr);
+	accept.m_myInfo.m_addr = GetMyTcpAddr();
 	accept.m_myInfo.m_id = m_myUID;
 
 	accept.m_proposalID.m_number = proposalID.m_number;
@@ -376,8 +409,8 @@ void Server::sendAccept(const ProposalID&  proposalID,
 	for(auto acceptorUID : m_majorityAcceptors){
 		auto peerItr = m_peers.find(acceptorUID);
 		if(peerItr != m_peers.end()){
-			PeerAddr& peer = peerItr->second;
-			SendMessageToPeer(AcceptMessage::cmd, accept, peer);
+			auto& peer = peerItr->second;
+			SendMessageToPeer(AcceptMessage::cmd, accept, peer.m_addr);
 		}
 	}
 }
@@ -393,11 +426,7 @@ void Server::sendPermit(const std::string& proposerUID, const ProposalID&  propo
 	const std::string& acceptedValue)
 {
 	PermitMessage premit;
-	PPeerAddr addr;
-	addr.m_ip= m_localIP;
-	addr.m_port = m_localTcpPort;
-	addr.m_socketType = 0;//tcp
-	premit.m_myInfo.m_addrs.push_back(addr);
+	premit.m_myInfo.m_addr = GetMyTcpAddr();
 	premit.m_myInfo.m_id = m_myUID;
 	premit.m_proposalID.m_number = proposalID.m_number;
 	premit.m_proposalID.m_uid = proposalID.m_uid;
@@ -405,8 +434,8 @@ void Server::sendPermit(const std::string& proposerUID, const ProposalID&  propo
 
 	auto peerItr = m_peers.find(proposerUID);
 	if(peerItr != m_peers.end()){
-		PeerAddr& peer = peerItr->second;
-		SendMessageToPeer(PermitMessage::cmd, premit, peer);
+		auto& peer = peerItr->second;
+		SendMessageToPeer(PermitMessage::cmd, premit, peer.m_addr);
 	}
 }
 
@@ -433,11 +462,7 @@ void Server::sendPrepareNACK(const std::string& proposerUID, const ProposalID& p
 	const ProposalID& promisedID)
 {
 	PrepareAckMessage ack;
-	PPeerAddr addr;
-	addr.m_ip= m_localIP;
-	addr.m_port = m_localTcpPort;
-	addr.m_socketType = 0;//tcp
-	ack.m_myInfo.m_addrs.push_back(addr);
+	ack.m_myInfo.m_addr = GetMyTcpAddr();
 	ack.m_myInfo.m_id = m_myUID;
 	ack.m_proposalID.m_number = proposalID.m_number;
 	ack.m_proposalID.m_uid = proposalID.m_uid;
@@ -446,8 +471,8 @@ void Server::sendPrepareNACK(const std::string& proposerUID, const ProposalID& p
 
 	auto peerItr = m_peers.find(proposerUID);
 	if(peerItr != m_peers.end()){
-		PeerAddr& peer = peerItr->second;
-		SendMessageToPeer(PrepareAckMessage::cmd, ack, peer);
+		auto& peer = peerItr->second;
+		SendMessageToPeer(PrepareAckMessage::cmd, ack, peer.m_addr);
 	}
 }
 
@@ -462,11 +487,7 @@ void Server::sendAcceptNACK(const std::string& proposerUID, const ProposalID& pr
 	const ProposalID& promisedID)
 {
 	AcceptAckMessage ack;
-	PPeerAddr addr;
-	addr.m_ip= m_localIP;
-	addr.m_port = m_localTcpPort;
-	addr.m_socketType = 0;//tcp
-	ack.m_myInfo.m_addrs.push_back(addr);
+	ack.m_myInfo.m_addr = GetMyTcpAddr();
 	ack.m_myInfo.m_id = m_myUID;
 	ack.m_proposalID.m_number = proposalID.m_number;
 	ack.m_proposalID.m_uid = proposalID.m_uid;
@@ -475,8 +496,8 @@ void Server::sendAcceptNACK(const std::string& proposerUID, const ProposalID& pr
 
 	auto peerItr = m_peers.find(proposerUID);
 	if(peerItr != m_peers.end()){
-		PeerAddr& peer = peerItr->second;
-		SendMessageToPeer(AcceptAckMessage::cmd, ack, peer);
+		auto& peer = peerItr->second;
+		SendMessageToPeer(AcceptAckMessage::cmd, ack, peer.m_addr);
 	}
 
 }
@@ -504,13 +525,9 @@ void Server::onLeadershipChange(const std::string& previousLeaderUID,
 void Server::sendHeartbeat(const ProposalID& leaderProposalID)
 {
 	HeartbeatMessage heartbeat;
-	heartbeat.m_stamp = Util::GetMonoTimeMs();
-	heartbeat.m_myInfo.m_id = m_myUID;
-	PPeerAddr addr;
-	addr.m_ip= m_localIP;
-	addr.m_port = m_localTcpPort;
-	addr.m_socketType = 0;//tcp
-	heartbeat.m_myInfo.m_addrs.push_back(addr);
+	heartbeat.m_timestamp = Util::GetMonoTimeMs();
+	heartbeat.m_myinfo.m_id = m_myUID;
+	heartbeat.m_myinfo.m_addr = GetMyTcpAddr();
 
 	SendMessageToAllPeer(HeartbeatMessage::cmd, heartbeat);
 	SendMessageToStablePeer(HeartbeatMessage::cmd, heartbeat);
