@@ -23,7 +23,7 @@ bool Learner::isComplete()
 
 /**
  * @brief 
- * @fromUID Acceptor的ID
+ * @fromUID Acceptor的UID
  * @proposalID accept请求携带的议题编号
  * @acceptedValue accept请求携带的议题值
  */
@@ -36,6 +36,7 @@ void Learner::receiveAccepted(const std::string& fromUID, const ProposalID& prop
         return;
     }
 
+    //议题编号无效
     if(!proposalID.isValid())
     {
         return;
@@ -97,4 +98,14 @@ ProposalID Learner::getFinalProposalID()
 int Learner::getQuorumSize() 
 {
     return m_quorumSize;
+}
+
+bool Learner::isActive()
+{
+	return m_active;
+}
+
+void Learner::setActive(bool active)
+{
+	m_active = active;
 }

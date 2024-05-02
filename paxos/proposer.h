@@ -19,10 +19,11 @@ public:
     void observeProposal(const std::string& fromUID, const ProposalID& proposalID);
     void receivePrepareNACK(const std::string& fromUID, const ProposalID& proposalID, 
         const ProposalID& promisedID);
-	void receiveAcceptNACK(const std::string& proposerUID, const ProposalID& proposalID, const ProposalID& promisedID);
+	void receiveAcceptNACK(const std::string& fromUID, const ProposalID& proposalID, 
+        const ProposalID& promisedID);
     void resendAccept();
 
-    std::string getProposerID();
+    std::string getProposerUID();
     int getQuorumSize();
     ProposalID getProposalID();
     std::string getProposedValue();
@@ -35,8 +36,8 @@ public:
 private:
     //网络通信接口
     std::shared_ptr<Messenger> m_messenger;
-    //Proposer的ID
-    std::string m_proposerID;
+    //Proposer的UID
+    std::string m_proposerUID;
     //达成一致要求的最小Acceptor数量
     int m_quorumSize;
 

@@ -10,7 +10,7 @@
 Proposer::Proposer(std::shared_ptr<Messenger> messenger, const std::string& proposerUID, int quorumSize)
 {
     m_messenger = messenger;
-    m_proposerID = proposerUID;
+    m_proposerUID = proposerUID;
     m_quorumSize = quorumSize;
     m_proposalID = ProposalID(0, proposerUID);
 }
@@ -75,7 +75,7 @@ void Proposer::setProposal(const std::string& value)
 /**
  * @brief 
  * 
- * @param fromUID Acceptor的ID
+ * @param fromUID Acceptor的UID
  * @param proposalID prepare请求的议题编号
  * @param prevAcceptedID Acceptor当前批准的最大议题编号
  * @param prevAcceptedValue Acceptor当前批准的最大议题编号对应的value
@@ -122,21 +122,29 @@ void Proposer::receivePromise(const std::string& fromUID, const ProposalID& prop
 }
 
 /**
- * @brief 收到Acceptor的NACK响应，会在NACK响应里返回它当前不再批准任何编号小于promisedID的议题。
+ * @brief 收到Acceptor的ACK，ACK里返回此Acceptor当前不再批准任何编号小于promisedID的议题。
  * 
- * @param proposerUID Proposer的ID
+ * @param fromUID Acceptor的ID
  * @param proposalID prepare请求的议题编号
  * @param promisedID Acceptor对于所有prepare请求承诺的最大议题编号
  */
-void Proposer::receivePrepareNACK(const std::string& fromUID, const ProposalID& proposalID, 
-        const ProposalID& promisedID) 
+void Proposer::receivePrepareNACK(const std::string& fromUID, 
+	const ProposalID& proposalID, const ProposalID& promisedID) 
 {
 	observeProposal(fromUID, promisedID);
 }
 
-void Proposer::receiveAcceptNACK(const std::string& proposerUID, 
+/**
+ * @brief 收到Acceptor的ACK，ACK里返回此Acceptor当前不再批准任何编号小于promisedID的议题。
+ * 
+ * @param fromUID Acceptor的ID
+ * @param proposalID acceptor请求的议题编号
+ * @param promisedID Acceptor对于所有prepare请求承诺的最大议题编号
+ */
+void Proposer::receiveAcceptNACK(const std::string& fromUID, 
 	const ProposalID& proposalID, const ProposalID& promisedID)
 {
+	observeProposal(fromUID, promisedID);
 }
 
 /**
@@ -144,9 +152,9 @@ void Proposer::receiveAcceptNACK(const std::string& proposerUID,
  * 
  * @return 协议号
  */
-std::string Proposer::getProposerID() 
+std::string Proposer::getProposerUID() 
 {
-    return m_proposerID;
+    return m_proposerUID;
 }
 
 /**
@@ -201,7 +209,7 @@ int Proposer::numPromises()
 /**
  * @brief 更新自己收到Acceptor已经批准的最大议题编号
  * 
- * @param fromUID 	acceptor的ID
+ * @param fromUID 	acceptor的UID
  * @param proposalID 协议号
  */
 void Proposer::observeProposal(const std::string& fromUID, const ProposalID& proposalID) 

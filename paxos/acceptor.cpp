@@ -13,31 +13,38 @@ Acceptor::~Acceptor(){}
 /**
  * @brief 接收到prepare请求
  * 
- * @param fromUID Acceptor的ID
+ * @param fromUID Proposer的UID
  * @param proposalID 议题编号
  */
 void Acceptor::receivePrepare(const std::string& fromUID, const ProposalID& proposalID) 
 {
 	if (m_promisedID.isValid() && proposalID == m_promisedID) 
-	{ // duplicate message
+	{ 
+		//已经承诺过这个协议编号
 		if (m_active)
 		{
+			//发送承诺
 			m_messenger->sendPromise(fromUID, proposalID, m_acceptedID, m_acceptedValue);
 		}
 	}
 	else if (!m_promisedID.isValid() || proposalID > m_promisedID) 
 	{
-		if (m_pendingPromise.empty()) 
+		//协议编号大于已经承诺的协议编号，拒绝响应。是想要给已经给出承诺的协议一个缓冲时间来提交协议。
+		//防止发生连续的prepare请求，导致acceptor不断的承诺新的协议编号。原来的Proposer没有办法
+		//只能继续递增协议号，导致新的Proposer无法提交协议。
+		if (m_pendingPromiseUID.empty()) 
 		{
 			m_promisedID = proposalID;
 			if (m_active)
 			{
-				m_pendingPromise = fromUID;
+				m_pendingPromiseUID = fromUID;
 			}
 		}
 	}
 	else
 	{
+		//协议编号小于已经承诺的协议编号，返回已经承诺的协议编号，这个消息只是个单纯的ACK消息，
+		//不是承诺消息，Proposer不能用它来当做发起accept请求的依据。
 		if (m_active)
 		{
 			m_messenger->sendPrepareNACK(fromUID, proposalID, m_promisedID);
@@ -49,7 +56,7 @@ void Acceptor::receivePrepare(const std::string& fromUID, const ProposalID& prop
 /**
  * @brief 接收到accept请求
  * 
- * @param fromUID Proposer的ID
+ * @param fromUID Proposer的UID
  * @param proposalID 议题编号
  * @param value 议题value
  */
@@ -58,14 +65,16 @@ void Acceptor::receiveAcceptRequest(const std::string& fromUID, const ProposalID
 {
 	if (m_acceptedID.isValid() && proposalID == m_acceptedID && m_acceptedValue == value) 
 	{
+		//已经批准过这个协议，包括编号和value都相等
 		if (m_active)
 		{
-			m_messenger->sendAccepted(proposalID, value);
+			//发送批准
+			m_messenger->sendPermit(fromUID, proposalID, value);
 		}
 	}
 	else if (!m_promisedID.isValid() || proposalID > m_promisedID || proposalID == m_promisedID) 
 	{
-		if (m_pendingAccepted.empty()) 
+		if (m_pendingAcceptUID.empty()) 
 		{
 			m_promisedID    = proposalID;
 			m_acceptedID    = proposalID;
@@ -73,7 +82,7 @@ void Acceptor::receiveAcceptRequest(const std::string& fromUID, const ProposalID
 			
 			if (m_active)
 			{
-				m_pendingAccepted = fromUID;
+				m_pendingAcceptUID = fromUID;
 			}
 		}
 	}
@@ -108,9 +117,10 @@ std::string Acceptor::getAcceptedValue()
 }
 
 
-bool Acceptor::persistenceRequired() 
+bool Acceptor::persistenceRequired()
 {
-	return !m_pendingAccepted.empty() || !m_pendingPromise.empty();
+	bool ret = !m_pendingAcceptUID.empty() || !m_pendingPromiseUID.empty();
+	return ret;
 }
 	
 
@@ -125,17 +135,17 @@ void Acceptor::persisted()
 {
 	if (m_active) 
 	{
-		if (!m_pendingPromise.empty())
+		if (!m_pendingPromiseUID.empty())
 		{
-			m_messenger->sendPromise(m_pendingPromise, m_promisedID, m_acceptedID, m_acceptedValue);
+			m_messenger->sendPromise(m_pendingPromiseUID, m_promisedID, m_acceptedID, m_acceptedValue);
 		}
-		if (!m_pendingAccepted.empty())
+		if (!m_pendingAcceptUID.empty())
 		{
-			m_messenger->sendAccepted(m_acceptedID, m_acceptedValue);
+			m_messenger->sendPermit(m_pendingAcceptUID, m_acceptedID, m_acceptedValue);
 		}
 	}
-	m_pendingPromise.clear();
-	m_pendingAccepted.clear();
+	m_pendingPromiseUID.clear();
+	m_pendingAcceptUID.clear();
 }
 
 

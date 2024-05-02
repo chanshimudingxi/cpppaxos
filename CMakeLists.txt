@@ -12,23 +12,23 @@ endif()
 
 set(PROJECT_ROOT_PATH           "${CMAKE_SOURCE_DIR}")
 set(LIBRARY_OUTPUT_DIRECTORY    "${CMAKE_SOURCE_DIR}/lib")
+set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${LIBRARY_OUTPUT_DIRECTORY})
 set(RUNTIME_OUTPUT_DIRECTORY    "${CMAKE_SOURCE_DIR}/bin")
+set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${RUNTIME_OUTPUT_DIRECTORY})
  
 include_directories(
 	"${PROJECT_ROOT_PATH}/deps"
 	"${PROJECT_ROOT_PATH}"
 )
 
-link_directories(
-	"${LIBRARY_OUTPUT_DIRECTORY}/"
-)
+#link_directories(
+#	"${LIBRARY_OUTPUT_DIRECTORY}"
+#)
 
 add_subdirectory(deps)
 
-aux_source_directory(proto PROTO_SRC)
 aux_source_directory(paxos PAXOS_SRC)
 
-
-add_executable(node server.cpp main.cpp ${PROTO_SRC} ${PAXOS_SRC})
+add_executable(node server.cpp main.cpp ${PAXOS_SRC})
 
 target_link_libraries(node deps)

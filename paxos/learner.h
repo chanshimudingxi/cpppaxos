@@ -28,9 +28,12 @@ public:
 	bool isComplete();
 	void receiveAccepted(const std::string& fromUID, const ProposalID& proposalID, 
 		const std::string& acceptedValue);
+		
     std::string getFinalValue();
 	ProposalID getFinalProposalID();
 	int getQuorumSize();
+	bool isActive();
+	void setActive(bool active);
 private:
 	std::shared_ptr<Messenger> m_messenger;
 	std::string    m_learnerUID;
@@ -43,4 +46,6 @@ private:
 	std::string m_finalValue;
 	//最终达成一致的议题编号
 	ProposalID m_finalProposalID;
+
+	bool m_active;
 };
