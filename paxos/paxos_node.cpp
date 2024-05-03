@@ -5,10 +5,10 @@
 PaxosNode::PaxosNode(Messenger& messenger, const std::string& nodeUID, 
 		int quorumSize, int heartbeatPeriod, int heartbeatTimeout, 
 		int livenessWindow, std::string leaderUID):
+		m_messenger(messenger),
 		m_proposer(messenger, nodeUID, quorumSize),
 		m_acceptor(messenger, nodeUID, livenessWindow),
-		m_learner(messenger, nodeUID, quorumSize),
-		m_messenger(messenger)
+		m_learner(messenger, nodeUID, quorumSize)
 {
 	m_heartbeatPeriod = heartbeatPeriod;
 	m_heartbeatTimeout = heartbeatTimeout;

@@ -52,7 +52,7 @@ std::string ProposalID::toString() const
 
 int ProposalID::compare(const ProposalID& id) const
 {
-    if(m_uid > id.m_uid || m_uid == id.m_uid && m_number > id.m_number)
+    if(m_uid > id.m_uid || (m_uid == id.m_uid && m_number > id.m_number) )
     {
         return 1;
     }

@@ -11,6 +11,17 @@
 
 struct PeerAddr: public Marshallable{
 	PeerAddr():m_ip(0),m_port(0),m_socketType(SocketType::tcp),m_fd(-1),m_rtt(100){}
+	PeerAddr(const PeerAddr& addr):m_ip(addr.m_ip),m_port(addr.m_port),
+		m_socketType(addr.m_socketType),m_fd(addr.m_fd),m_rtt(addr.m_rtt){
+	}
+	PeerAddr& operator =(const PeerAddr& addr){
+		m_ip = addr.m_ip;
+		m_port = addr.m_port;
+		m_socketType = addr.m_socketType;
+		m_fd = addr.m_fd;
+		m_rtt = addr.m_rtt;
+		return *this;
+	}
 	~PeerAddr(){}
 
 	virtual void marshal(Pack & pk) const{
@@ -79,10 +90,18 @@ struct PeerAddr: public Marshallable{
 };
 
 struct PeerInfo: public Marshallable{
-	PeerInfo(){}
-	~PeerInfo(){}
 	std::string m_id;
 	PeerAddr m_addr;
+
+	PeerInfo(){}
+	PeerInfo(const PeerInfo& p):m_id(p.m_id), m_addr(p.m_addr){
+	}
+	PeerInfo& operator = (const PeerInfo& p){
+		m_id = p.m_id;
+		m_addr = p.m_addr;
+		return *this;
+	}
+	~PeerInfo(){}
 
 	virtual void marshal(Pack & pk) const{
 		pk << m_id << m_addr;
@@ -90,6 +109,25 @@ struct PeerInfo: public Marshallable{
 
 	virtual void unmarshal(const Unpack &up){
 		up >> m_id >> m_addr;
+	}
+
+	bool operator != (const PeerInfo& p) const{
+		return m_id != p.m_id;
+	}
+	bool operator == (const PeerInfo& p) const{
+		return m_id == p.m_id;
+	}
+	bool operator < (const PeerInfo& p) const{
+		return m_id < p.m_id;
+	}
+	bool operator > (const PeerInfo& p) const{
+		return m_id > p.m_id;
+	}
+	bool operator <=(const PeerInfo& p) const{
+		return *this < p || *this == p;
+	}
+	bool operator >=(const PeerInfo& p) const{
+		return *this > p || *this == p;
 	}
 };
 

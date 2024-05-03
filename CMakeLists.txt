@@ -1,8 +1,7 @@
 cmake_minimum_required(VERSION 2.8)
 project(proxy)
 
-add_definitions(-ggdb3 -Werror -Wno-builtin-macro-redefined -Wno-deprecated)
-add_definitions(-DIM_RUN_MODE)
+add_definitions(-O0 -g2 -ggdb  -Wall -Wno-builtin-macro-redefined -Wno-deprecated)
 
 if (${CMAKE_MAJOR_VERSION}.${CMAKE_MINOR_VERSION}.${CMAKE_PATCH_VERSION} VERSION_LESS 2.8.12)
     add_definitions(-std=c++0x)

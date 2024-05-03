@@ -28,13 +28,14 @@ struct PingMessage : public Marshallable{
 	enum{cmd = PAXOS_PROTO_PING_MESSAGE};
 	uint64_t m_timestamp;
 	PeerInfo m_myInfo;
+	std::set<PeerInfo> m_peers;
 
 	virtual void marshal(Pack & pk) const{
-		pk << m_timestamp << m_myInfo;
+		pk << m_timestamp << m_myInfo << m_peers;
 	}
 
 	virtual void unmarshal(const Unpack &up){
-		up >> m_timestamp >> m_myInfo;
+		up >> m_timestamp >> m_myInfo >> m_peers;
 	}
 };
 

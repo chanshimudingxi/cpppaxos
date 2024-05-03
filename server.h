@@ -21,6 +21,8 @@
 #include "paxos/paxos_node.h"
 #include "paxos/messenger.h"
 
+#include "eztimer.h"
+
 class Server : public Messenger, PaxosNode, public PacketHandler, std::enable_shared_from_this<Server>
 {
 public:
@@ -40,9 +42,9 @@ public:
 	void SendMessageToStablePeer(uint16_t cmd, const Marshallable& msg);
 
 	//获取本地地址
-	PeerAddr GetMyTcpAddr();
-	PeerAddr GetMyUdpAddr();
+	PeerInfo GetMyNodeInfo(SocketType type);
 	bool SetPeerAddr(std::string peerId, const PeerAddr& peerAddr);
+	void updateStableAddr(std::string peerId, const PeerAddr& addr);
 	bool HandlePingMessage(const PacketHeader& header, std::shared_ptr<PingMessage> pMsg, SocketBase* s);
 	bool HandlePongMessage(const PacketHeader& header, std::shared_ptr<PongMessage> pMsg, SocketBase* s);
 	void SendPingMessage();
@@ -84,18 +86,19 @@ public:
 	//发送心跳
 	virtual void sendHeartbeat(const ProposalID& leaderProposalID);
 	//注册定时器
-	virtual void addTimer(long millisecondDelay, std::function<void()>);
+	virtual void addTimer(long millisecondDelay, std::function<void()> callback);
 private:
 	//连接管理容器
 	EpollContainer* m_container;
 
+	EzTimerManager m_timers;
 	//自己的节点信息
 	std::string m_myUID;
 	uint32_t m_localIP;
 	uint16_t m_localTcpPort;
 	uint16_t m_localUdpPort;
 	//集群稳定的节点，相当于P2P网络中稳定的公有节点
-	std::vector<PeerAddr> m_stableAddrs;
+	std::vector<PeerInfo> m_stableAddrs;
 	//集群其他节点
 	std::map<std::string, PeerInfo> m_peers;
 	//已经选择过的最大的节点id

@@ -123,9 +123,10 @@ int main(int argc, char** argv){
 	int ret = 0;
 
 	const std::string logfile = Util::getCWD() + "/log";
+	fprintf(stderr, "logfile %s\n", logfile.c_str());
 	ret = setlogfile(logfile);
 	if(ret < 0){
-		fprintf(stderr, "setlogfile failed");
+		fprintf(stderr, "setlogfile failed\n");
 		return -1;
 	}
 	setloglevel(Logger::INFO);
@@ -136,9 +137,9 @@ int main(int argc, char** argv){
 
 	set_signal_handler();
 
-	if(set_openfd_limit(500000) == -1){
-		return -1;
-	}
+	// if(set_openfd_limit(500000) == -1){
+	// 	return -1;
+	// }
 
 	if(enalbe_coredump() == -1){
 		return -1;
@@ -207,6 +208,8 @@ int main(int argc, char** argv){
 		dstUdpPort = 20001;
 	}
 
+	LOG_INFO("mySID: %s, localSip: %s, localTcpPort: %d, localUdpPort: %d, dstSip: %s, dstTcpPort: %d, dstUdpPort: %d", 
+		mySID.c_str(), localSip.c_str(), localTcpPort, localUdpPort, dstSip.c_str(), dstTcpPort, dstUdpPort);
 	Server server(mySID, 3);
 	if(!server.Init(localSip, localTcpPort, localUdpPort, dstSip, dstTcpPort, dstUdpPort)){
 		return -1;

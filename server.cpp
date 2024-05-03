@@ -10,6 +10,8 @@ Server::Server(const std::string& myid, int quorumSize):
 
 	m_myUID = myid;
 	m_quorumSize = quorumSize;
+
+	m_timers.addTimer(5000, std::bind(&Server::SendPingMessage, this));
 }
 
 Server::~Server(){
@@ -28,11 +30,11 @@ bool Server::Init(const std::string& localIP, uint16_t localTcpPort, uint16_t lo
 	m_localTcpPort = localTcpPort;
 	m_localUdpPort = localUdpPort;
 
-	PeerAddr addr;
-	addr.m_ip = inet_addr(dstIP.c_str());
-	addr.m_port = dstTcpPort;
-	addr.m_socketType = SocketType::tcp;
-	m_stableAddrs.push_back(addr);
+	PeerInfo peer;
+	peer.m_addr.m_ip = inet_addr(dstIP.c_str());
+	peer.m_addr.m_port = dstTcpPort;
+	peer.m_addr.m_socketType = SocketType::tcp;
+	m_stableAddrs.push_back(peer);
 	return true;
 }
 
@@ -65,6 +67,7 @@ bool Server::Run(){
 	while(true){
 		uint64_t start = Util::GetMonoTimeUs();
 		m_container->HandleSockets();
+		m_timers.checkTimer();
 		uint64_t end = Util::GetMonoTimeUs();
     }
 }
@@ -186,20 +189,13 @@ bool Server::HandleMessage(const PacketHeader& header, std::shared_ptr<Marshalla
 	return ret;
 }
 
-PeerAddr Server::GetMyTcpAddr(){
-	PeerAddr addr;
-	addr.m_ip = m_localIP;
-	addr.m_port = m_localTcpPort;
-	addr.m_socketType = SocketType::tcp;
-	return addr;
-}
-
-PeerAddr Server::GetMyUdpAddr(){
-	PeerAddr addr;
-	addr.m_ip = m_localIP;
-	addr.m_port = m_localUdpPort;
-	addr.m_socketType = SocketType::udp;
-	return addr;
+PeerInfo Server::GetMyNodeInfo(SocketType type){
+	PeerInfo p;
+	p.m_addr.m_ip = m_localIP;
+	p.m_addr.m_port = SocketType::tcp == type ? m_localTcpPort : m_localUdpPort;
+	p.m_addr.m_socketType = type;
+	p.m_id = m_myUID;
+	return p;
 }
 
 bool Server::SetPeerAddr(std::string peerId, const PeerAddr& addr){
@@ -221,8 +217,18 @@ bool Server::SetPeerAddr(std::string peerId, const PeerAddr& addr){
 		peerinfo.m_addr = addr;
 		peerinfo.m_id = peerId;
 		m_peers[peerId] = peerinfo;
+		updateStableAddr(peerId, addr);
 	}
 	return true;
+}
+
+void Server::updateStableAddr(std::string peerId, const PeerAddr& addr)
+{
+	for(int i = 0; i < m_stableAddrs.size(); ++i){
+		if(m_stableAddrs[i].m_addr == addr){
+			m_stableAddrs[i].m_id = peerId;
+		}
+	}
 }
 
 bool Server::HandlePingMessage(const PacketHeader& header, std::shared_ptr<PingMessage> pMsg, SocketBase* s){
@@ -238,8 +244,7 @@ bool Server::HandlePingMessage(const PacketHeader& header, std::shared_ptr<PingM
 
 	PongMessage rsp;
 	rsp.m_timestamp = pMsg->m_timestamp;
-	rsp.m_myInfo.m_id = m_myUID;
-	rsp.m_myInfo.m_addr = GetMyTcpAddr();
+	rsp.m_myInfo = GetMyNodeInfo(SocketType::tcp);
 	SendMessage(PongMessage::cmd, rsp, s);
 	return true;
 }
@@ -297,9 +302,12 @@ void Server::SendPingMessage()
 {
 	PingMessage ping;
 	ping.m_timestamp = Util::GetMonoTimeMs();
-	ping.m_myInfo.m_id = m_myUID;
-	ping.m_myInfo.m_addr = GetMyTcpAddr();
+	ping.m_myInfo = GetMyNodeInfo(SocketType::tcp);
+	for(auto& peer : m_peers){
+		ping.m_peers.insert(peer.second);
+	}
 	SendMessageToAllPeer(PingMessage::cmd, ping);
+	SendMessageToStablePeer(PingMessage::cmd, ping);
 }
 
 bool Server::SendMessage(uint16_t cmd, const Marshallable& msg, SocketBase* s){
@@ -338,9 +346,11 @@ void Server::SendMessageToAllPeer(uint16_t cmd, const Marshallable& msg){
 
 void Server::SendMessageToStablePeer(uint16_t cmd, const Marshallable& msg){
 	for(int i=0; i < m_stableAddrs.size(); ++i){
-		PeerAddr& peeraddr = m_stableAddrs[i];
-		SendMessageToPeer(cmd, msg, peeraddr);
-		LOG_INFO("send ping to stable addr[%d] %s", i, peeraddr.toString().c_str());
+		PeerInfo& peer  = m_stableAddrs[i];
+		if(m_peers.find(peer.m_id) == m_peers.end()){
+			SendMessageToPeer(cmd, msg, peer.m_addr);
+			LOG_INFO("send ping to stable addr[%d] %s", i, peer.m_addr.toString().c_str());
+		}
 	}
 	return;
 }
@@ -383,8 +393,7 @@ void Server::sendPrepare(const ProposalID& proposalID){
 	PrepareMessage prepare;
 	prepare.m_proposalID.m_number = proposalID.m_number;
 	prepare.m_proposalID.m_uid = proposalID.m_uid;
-	prepare.m_myInfo.m_id = m_myUID;
-	prepare.m_myInfo.m_addr = GetMyTcpAddr();
+	prepare.m_myInfo = GetMyNodeInfo(SocketType::tcp);
 
 	for(auto acceptorUID : m_majorityAcceptors){
 		auto peerItr = m_peers.find(acceptorUID);
@@ -406,8 +415,7 @@ void Server::sendPrepare(const ProposalID& proposalID){
 void Server::sendPromise(const std::string& toUID, const ProposalID& proposalID, 
 	const ProposalID& acceptID, const std::string& acceptValue){
 	PromiseMessage promise;
-	promise.m_myInfo.m_addr = GetMyTcpAddr();
-	promise.m_myInfo.m_id = m_myUID;
+	promise.m_myInfo = GetMyNodeInfo(SocketType::tcp);
 
 	promise.m_proposalID.m_number = proposalID.m_number;
 	promise.m_proposalID.m_uid = proposalID.m_uid;
@@ -434,8 +442,7 @@ void Server::sendPromise(const std::string& toUID, const ProposalID& proposalID,
 void Server::sendAccept(const ProposalID&  proposalID, 
 	const std::string& proposalValue){
 	AcceptMessage accept;
-	accept.m_myInfo.m_addr = GetMyTcpAddr();
-	accept.m_myInfo.m_id = m_myUID;
+	accept.m_myInfo = GetMyNodeInfo(SocketType::tcp);
 
 	accept.m_proposalID.m_number = proposalID.m_number;
 	accept.m_proposalID.m_uid = proposalID.m_uid;
@@ -461,8 +468,7 @@ void Server::sendPermit(const std::string& proposerUID, const ProposalID&  propo
 	const std::string& acceptedValue)
 {
 	PermitMessage premit;
-	premit.m_myInfo.m_addr = GetMyTcpAddr();
-	premit.m_myInfo.m_id = m_myUID;
+	premit.m_myInfo = GetMyNodeInfo(SocketType::tcp);
 	premit.m_proposalID.m_number = proposalID.m_number;
 	premit.m_proposalID.m_uid = proposalID.m_uid;
 	premit.m_acceptedValue = acceptedValue;
@@ -497,8 +503,7 @@ void Server::sendPrepareNACK(const std::string& proposerUID, const ProposalID& p
 	const ProposalID& promisedID)
 {
 	PrepareAckMessage ack;
-	ack.m_myInfo.m_addr = GetMyTcpAddr();
-	ack.m_myInfo.m_id = m_myUID;
+	ack.m_myInfo = GetMyNodeInfo(SocketType::tcp);
 	ack.m_proposalID.m_number = proposalID.m_number;
 	ack.m_proposalID.m_uid = proposalID.m_uid;
 	ack.m_promiseID.m_number = promisedID.m_number;
@@ -522,8 +527,7 @@ void Server::sendAcceptNACK(const std::string& proposerUID, const ProposalID& pr
 	const ProposalID& promisedID)
 {
 	AcceptAckMessage ack;
-	ack.m_myInfo.m_addr = GetMyTcpAddr();
-	ack.m_myInfo.m_id = m_myUID;
+	ack.m_myInfo = GetMyNodeInfo(SocketType::tcp);
 	ack.m_proposalID.m_number = proposalID.m_number;
 	ack.m_proposalID.m_uid = proposalID.m_uid;
 	ack.m_promiseID.m_number = promisedID.m_number;
@@ -560,14 +564,12 @@ void Server::onLeadershipChange(const std::string& previousLeaderUID,
 void Server::sendHeartbeat(const ProposalID& leaderProposalID)
 {	
 	HeartbeatMessage heartbeat;
-	heartbeat.m_myInfo.m_id = m_myUID;
-	heartbeat.m_myInfo.m_addr = GetMyTcpAddr();
+	heartbeat.m_myInfo = GetMyNodeInfo(SocketType::tcp);
 	heartbeat.m_leaderProposalID.m_number = leaderProposalID.m_number;
 	heartbeat.m_leaderProposalID.m_uid = leaderProposalID.m_uid;
 	SendMessageToAllPeer(HeartbeatMessage::cmd, heartbeat);
 }
 
-
-void Server::addTimer(long millisecondDelay, std::function<void()>){
-	
+void Server::addTimer(long millisecondDelay, std::function<void()> callback){
+	m_timers.addTimer(millisecondDelay, callback);
 }
