@@ -11,7 +11,7 @@
 class PaxosNode
 {
 public:
-	PaxosNode(std::shared_ptr<Messenger> messenger, const std::string& nodeUID, 
+	PaxosNode(Messenger& messenger, const std::string& nodeUID, 
 		int quorumSize, int heartbeatPeriod, int heartbeatTimeout, 
 		int livenessWindow, std::string leaderUID = "");
 	~PaxosNode();
@@ -37,11 +37,11 @@ public:
 	void receiveAcceptNACK(const std::string& fromUID, const ProposalID& proposalID, 
 		const ProposalID& promisedID);
 private:
-	std::shared_ptr<Messenger> m_messenger;
-	Proposer m_proposer;
-	Acceptor m_acceptor;
-	Learner  m_learner;
-	std::string m_nodeUID;
+	Messenger& m_messenger;	//通信接口
+	Proposer m_proposer;	//proposer状态机
+	Acceptor m_acceptor;	//acceptor状态机
+	Learner  m_learner;		//learner状态机
+	std::string m_nodeUID;	//节点UID
 
 	//leader UID
 	std::string	m_leaderUID;

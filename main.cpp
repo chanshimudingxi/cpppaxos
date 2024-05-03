@@ -130,9 +130,9 @@ int main(int argc, char** argv){
 	}
 	setloglevel(Logger::INFO);
 
-	if(daemonize() == -1){
-		return -1;
-	}
+	// if(daemonize() == -1){
+	// 	return -1;
+	// }
 
 	set_signal_handler();
 

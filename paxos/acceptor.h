@@ -10,7 +10,7 @@
 class Acceptor 
 {
 public:
-	Acceptor(std::shared_ptr<Messenger> messenger, const std::string& acceptorUID, int livenessWindow);
+	Acceptor(Messenger& messenger, const std::string& acceptorUID, int livenessWindow);
 	~Acceptor();
 
 	void receivePrepare(const std::string& fromUID, const ProposalID& proposalID);
@@ -28,7 +28,7 @@ public:
 	bool isActive();
 	void setActive(bool active);
 private:
-    std::shared_ptr<Messenger> m_messenger;
+    Messenger& m_messenger;
 	std::string  m_acceptorUID;
 	//保活窗口的大小，单位微秒
 	uint64_t m_livenessWindow; 

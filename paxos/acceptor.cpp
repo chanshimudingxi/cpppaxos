@@ -1,8 +1,7 @@
 #include "acceptor.h"
 
-Acceptor::Acceptor(std::shared_ptr<Messenger> messenger, const std::string& acceptorUID, int livenessWindow)
+Acceptor::Acceptor(Messenger& messenger, const std::string& acceptorUID, int livenessWindow):m_messenger(messenger)
 {
-    m_messenger = messenger;
 	m_acceptorUID = acceptorUID;
 	m_livenessWindow = livenessWindow;
 	m_lastPrepareTimestamp   = Util::GetMonoTimeUs();
@@ -24,7 +23,7 @@ void Acceptor::receivePrepare(const std::string& fromUID, const ProposalID& prop
 		if (m_active)
 		{
 			//发送承诺
-			m_messenger->sendPromise(fromUID, proposalID, m_acceptedID, m_acceptedValue);
+			m_messenger.sendPromise(fromUID, proposalID, m_acceptedID, m_acceptedValue);
 		}
 	}
 	else if (!m_promisedID.isValid() || proposalID > m_promisedID) 
@@ -47,7 +46,7 @@ void Acceptor::receivePrepare(const std::string& fromUID, const ProposalID& prop
 		//不是承诺消息，Proposer不能用它来当做发起accept请求的依据。
 		if (m_active)
 		{
-			m_messenger->sendPrepareNACK(fromUID, proposalID, m_promisedID);
+			m_messenger.sendPrepareNACK(fromUID, proposalID, m_promisedID);
 		}
 	}
 	m_lastPrepareTimestamp = Util::GetMonoTimeUs();
@@ -69,7 +68,7 @@ void Acceptor::receiveAcceptRequest(const std::string& fromUID, const ProposalID
 		if (m_active)
 		{
 			//发送批准
-			m_messenger->sendPermit(fromUID, proposalID, value);
+			m_messenger.sendPermit(fromUID, proposalID, value);
 		}
 	}
 	else if (!m_promisedID.isValid() || proposalID > m_promisedID || proposalID == m_promisedID) 
@@ -90,7 +89,7 @@ void Acceptor::receiveAcceptRequest(const std::string& fromUID, const ProposalID
 	{
 		if (m_active)
 		{
-			m_messenger->sendAcceptNACK(fromUID, proposalID, m_promisedID);
+			m_messenger.sendAcceptNACK(fromUID, proposalID, m_promisedID);
 		}
 	}
 }
@@ -137,11 +136,11 @@ void Acceptor::persisted()
 	{
 		if (!m_pendingPromiseUID.empty())
 		{
-			m_messenger->sendPromise(m_pendingPromiseUID, m_promisedID, m_acceptedID, m_acceptedValue);
+			m_messenger.sendPromise(m_pendingPromiseUID, m_promisedID, m_acceptedID, m_acceptedValue);
 		}
 		if (!m_pendingAcceptUID.empty())
 		{
-			m_messenger->sendPermit(m_pendingAcceptUID, m_acceptedID, m_acceptedValue);
+			m_messenger.sendPermit(m_pendingAcceptUID, m_acceptedID, m_acceptedValue);
 		}
 	}
 	m_pendingPromiseUID.clear();

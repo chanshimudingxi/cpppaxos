@@ -1,16 +1,12 @@
 #include "proposalid.h"
 
-ProposalID::ProposalID()
-{
-	m_number = 0;
-	m_uid = "";
-}
+ProposalID::ProposalID():m_number(0),m_uid(""){}
 
-ProposalID::ProposalID(int number, std::string uid)
-{
-    m_number = number;
-    m_uid = uid;
-}
+ProposalID::ProposalID(int number, std::string uid):m_number(number),m_uid(uid)
+{}
+
+ProposalID::ProposalID(const ProposalID& id):m_number(id.m_number),m_uid(id.m_uid)
+{}
 
 ProposalID& ProposalID::operator=(const ProposalID& id)
 {
@@ -47,9 +43,11 @@ void ProposalID::incrementNumber()
     m_number++;
 }
 
-std::string ProposalID::getID() const
+std::string ProposalID::toString() const
 {
-    return m_uid;
+    std::string dumpstr;
+    dumpstr.append("proposalid:").append(m_uid).append("_").append(std::to_string(m_number));
+    return dumpstr;
 }
 
 int ProposalID::compare(const ProposalID& id) const
@@ -86,4 +84,13 @@ bool ProposalID::operator>(const ProposalID& id) const
 bool ProposalID::operator!=(const ProposalID& id) const
 {
 	return this->compare(id) != 0;
+}
+
+
+void ProposalID::marshal(Pack & pk) const{
+    pk << m_number << m_uid;
+}
+
+void ProposalID::unmarshal(const Unpack &up){
+    up >> m_number >> m_uid;
 }

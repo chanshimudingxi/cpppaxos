@@ -23,7 +23,7 @@ struct Proposal
 };
 
 public:
-    Learner(std::shared_ptr<Messenger> messenger, const std::string& learnerUID, int quorumSize);
+    Learner(Messenger& messenger, const std::string& learnerUID, int quorumSize);
 	~Learner();
 	bool isComplete();
 	void receiveAccepted(const std::string& fromUID, const ProposalID& proposalID, 
@@ -35,7 +35,7 @@ public:
 	bool isActive();
 	void setActive(bool active);
 private:
-	std::shared_ptr<Messenger> m_messenger;
+	Messenger& m_messenger;
 	std::string    m_learnerUID;
 	int            m_quorumSize;
 	//记录Proposal的状态

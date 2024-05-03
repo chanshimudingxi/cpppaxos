@@ -1,6 +1,8 @@
 #include "paxos_node.h"
 
-PaxosNode::PaxosNode(std::shared_ptr<Messenger> messenger, const std::string& nodeUID, 
+#include <functional>
+
+PaxosNode::PaxosNode(Messenger& messenger, const std::string& nodeUID, 
 		int quorumSize, int heartbeatPeriod, int heartbeatTimeout, 
 		int livenessWindow, std::string leaderUID):
 		m_proposer(messenger, nodeUID, quorumSize),
@@ -18,6 +20,8 @@ PaxosNode::PaxosNode(std::shared_ptr<Messenger> messenger, const std::string& no
 	{
 		m_proposer.setLeader(true);
 	}
+
+	m_messenger.addTimer(m_heartbeatPeriod, std::bind(&PaxosNode::pulse, this));
 
 	m_acquiringLeadership = false;
 }
@@ -79,7 +83,7 @@ void PaxosNode::pollLiveness()
 {
 	if (!isLeaderAlive() && isPrepareExpire()) 
 	{
-		if (m_acquiringLeadership)
+		if (isAcquiringLeadership())
 		{
 			prepare(true);
 		}
@@ -101,11 +105,11 @@ void PaxosNode::receiveHeartbeat(const std::string& fromUID, const ProposalID& p
 		
 		if (m_proposer.isLeader() && fromUID != m_proposer.getProposerUID()) {
 			m_proposer.setLeader(false);
-			m_messenger->onLeadershipLost();
+			m_messenger.onLeadershipLost();
 			m_proposer.observeProposal(fromUID, proposalID);
 		}
 		
-		m_messenger->onLeadershipChange(oldLeaderUID, fromUID);
+		m_messenger.onLeadershipChange(oldLeaderUID, fromUID);
 	}
 	
 	if (m_leaderProposalID.isValid() && m_leaderProposalID == proposalID)
@@ -119,7 +123,7 @@ void PaxosNode::pulse()
 	if (m_proposer.isLeader()) 
 	{
 		receiveHeartbeat(m_proposer.getProposerUID(), m_proposer.getProposalID());
-		m_messenger->sendHeartbeat(m_proposer.getProposalID());
+		m_messenger.sendHeartbeat(m_proposer.getProposalID());
 	}
 }
 
@@ -157,7 +161,7 @@ void PaxosNode::receivePromise(const std::string& fromUID, const ProposalID& pro
 		
 		pulse();
 		
-		m_messenger->onLeadershipChange(oldLeaderUID, m_leaderUID);
+		m_messenger.onLeadershipChange(oldLeaderUID, m_leaderUID);
 	}
 }
 
@@ -183,8 +187,8 @@ void PaxosNode::receiveAcceptNACK(const std::string& fromUID, const ProposalID& 
 		m_proposer.setLeader(false);
 		m_leaderUID = "";
 		m_leaderProposalID = ProposalID();
-		m_messenger->onLeadershipLost();
-		m_messenger->onLeadershipChange(m_proposer.getProposerUID(), m_leaderUID);
+		m_messenger.onLeadershipLost();
+		m_messenger.onLeadershipChange(m_proposer.getProposerUID(), m_leaderUID);
 		m_proposer.observeProposal(fromUID, proposalID);
 	}
 }

@@ -7,9 +7,8 @@
  * @param proposerUID proposer的ID
  * @param quorumSize 达成一致要求的最小Acceptor数量
  */
-Proposer::Proposer(std::shared_ptr<Messenger> messenger, const std::string& proposerUID, int quorumSize)
+Proposer::Proposer(Messenger& messenger, const std::string& proposerUID, int quorumSize):m_messenger(messenger)
 {
-    m_messenger = messenger;
     m_proposerUID = proposerUID;
     m_quorumSize = quorumSize;
     m_proposalID = ProposalID(0, proposerUID);
@@ -48,7 +47,7 @@ void Proposer::prepare( bool incrementProposalNumber )
 	if (m_active)
 	{
 		//发送prepare请求，prepare请求不需要携带议题value，只需要发送议题编号
-		m_messenger->sendPrepare(m_proposalID);
+		m_messenger.sendPrepare(m_proposalID);
 	}
 }
 
@@ -67,7 +66,7 @@ void Proposer::setProposal(const std::string& value)
 		//只有leader才能发起accept请求，因为leader表示prepare请求已经收到过大多数Acceptor的批准
 		if (m_leader && m_active)
 		{
-			m_messenger->sendAccept(m_proposalID, m_proposedValue);
+			m_messenger.sendAccept(m_proposalID, m_proposedValue);
 		}
 	}
 }
@@ -112,11 +111,11 @@ void Proposer::receivePromise(const std::string& fromUID, const ProposalID& prop
 		m_leader = true;
 
 		//向其他Proposer广播，希望自己的leader得到承认
-		m_messenger->onLeadershipAcquired();
+		m_messenger.onLeadershipAcquired();
 
 		if (!m_proposedValue.empty() && m_active)
 		{
-			m_messenger->sendAccept(m_proposalID, m_proposedValue);
+			m_messenger.sendAccept(m_proposalID, m_proposedValue);
 		}
 	}
 }
@@ -229,7 +228,7 @@ void Proposer::resendAccept()
 {
 	if (m_leader && m_active && !m_proposedValue.empty())
 	{		
-		m_messenger->sendAccept(m_proposalID, m_proposedValue);
+		m_messenger.sendAccept(m_proposalID, m_proposedValue);
 	}
 }
 

@@ -3,7 +3,7 @@
 #include "paxos/proto.h"
 
 Server::Server(const std::string& myid, int quorumSize):
-	m_paxosNode(shared_from_this(), myid, quorumSize, 10000, 100000, 50000, "")
+	PaxosNode(*this, myid, quorumSize, 10000, 100000, 50000, "")
 {
 	m_container = new EpollContainer(1000, 1000);
 	assert(nullptr != m_container);
@@ -102,6 +102,12 @@ int Server::HandlePacket(const char* data, size_t size, SocketBase* s){
 
 	std::shared_ptr<Marshallable> pMsg;
 	switch (subCmd){
+		case PingMessage::cmd:
+			pMsg = std::make_shared<PingMessage>();
+			break;
+		case PongMessage::cmd:
+			pMsg = std::make_shared<PongMessage>();
+			break;
 		case HeartbeatMessage::cmd:
 			pMsg = std::make_shared<HeartbeatMessage>();
 			break;
@@ -153,6 +159,12 @@ void Server::HandleClose(SocketBase* s){
 bool Server::HandleMessage(const PacketHeader& header, std::shared_ptr<Marshallable> pMsg, SocketBase* s){
 	bool ret = false;
 	switch (header.getSubCmd()){
+		case PingMessage::cmd:
+			ret = HandlePingMessage(header, std::dynamic_pointer_cast<PingMessage>(pMsg), s);
+			break;
+		case PongMessage::cmd:
+			ret = HandlePongMessage(header, std::dynamic_pointer_cast<PongMessage>(pMsg), s);
+			break;
 		case HeartbeatMessage::cmd:
 			ret = HandleHeatBeatMessage(header, std::dynamic_pointer_cast<HeartbeatMessage>(pMsg), s);
 			break;
@@ -174,65 +186,94 @@ bool Server::HandleMessage(const PacketHeader& header, std::shared_ptr<Marshalla
 	return ret;
 }
 
-bool Server::HandleHeatBeatMessage(const PacketHeader& header, std::shared_ptr<HeartbeatMessage> pMsg, SocketBase* s){
-	const std::string& peerId = pMsg->m_myinfo.m_id;
-	const PPeerAddr& peerAddr = pMsg->m_myinfo.m_addr;
-	LOG_INFO("peer id:%s %s", peerId.c_str(), peerAddr.toString().c_str());
-
+PeerAddr Server::GetMyTcpAddr(){
 	PeerAddr addr;
-	addr.m_ip = peerAddr.m_ip;
-	addr.m_port = peerAddr.m_port;
-	addr.m_socketType = peerAddr.m_socketType == 0 ? SocketType::tcp : SocketType::udp;
+	addr.m_ip = m_localIP;
+	addr.m_port = m_localTcpPort;
+	addr.m_socketType = SocketType::tcp;
+	return addr;
+}
+
+PeerAddr Server::GetMyUdpAddr(){
+	PeerAddr addr;
+	addr.m_ip = m_localIP;
+	addr.m_port = m_localUdpPort;
+	addr.m_socketType = SocketType::udp;
+	return addr;
+}
+
+bool Server::SetPeerAddr(std::string peerId, const PeerAddr& addr){
 	auto itr = m_peers.find(peerId);
 	if(itr != m_peers.end()){
-		itr->second.m_addr = addr;
+		PeerAddr& curaddr = itr->second.m_addr;
+		if(curaddr == addr){
+			curaddr.m_rtt = (curaddr.m_rtt * 3 + addr.m_rtt)/4;
+		}
+		else{
+			LOG_ERROR("peer %s addr %s already exist %s", 
+				peerId.c_str(), addr.toString().c_str(), 
+				curaddr.toString().c_str());
+			return false;
+		}
 	}
 	else{
-		Peer peerinfo;
+		PeerInfo peerinfo;
 		peerinfo.m_addr = addr;
 		peerinfo.m_id = peerId;
 		m_peers[peerId] = peerinfo;
 	}
-
-	//TODO send HeartbeatMessageRsp
-	HeartbeatMessageRsp rsp;
-	rsp.m_timestamp = pMsg->m_timestamp;
-	rsp.m_myinfo.m_id = m_myUID;
-	rsp.m_myinfo.m_addr = GetMyTcpAddr();
-	SendMessage(HeartbeatMessageRsp::cmd, rsp, s);
 	return true;
 }
 
-bool Server::HandleHeatBeatMessage(const PacketHeader& header, std::shared_ptr<HeartbeatMessageRsp> pMsg, SocketBase* s){
+bool Server::HandlePingMessage(const PacketHeader& header, std::shared_ptr<PingMessage> pMsg, SocketBase* s){
+	const std::string& peerId = pMsg->m_myInfo.m_id;
+	const PeerAddr& peerAddr = pMsg->m_myInfo.m_addr;
+	LOG_INFO("peer id:%s %s", peerId.c_str(), peerAddr.toString().c_str());
+
+	if(!SetPeerAddr(peerId, peerAddr)){
+		LOG_ERROR("set peer addr failed. peerid:%s %s", 
+			peerId.c_str(), peerAddr.toString().c_str());
+		return false;
+	}
+
+	PongMessage rsp;
+	rsp.m_timestamp = pMsg->m_timestamp;
+	rsp.m_myInfo.m_id = m_myUID;
+	rsp.m_myInfo.m_addr = GetMyTcpAddr();
+	SendMessage(PongMessage::cmd, rsp, s);
+	return true;
+}
+
+bool Server::HandlePongMessage(const PacketHeader& header, std::shared_ptr<PongMessage> pMsg, SocketBase* s){
 	uint64_t lastStamp = pMsg->m_timestamp;
 	uint64_t now = Util::GetMonoTimeMs();
 	uint64_t rtt = now > lastStamp ? now - lastStamp : 0;
-	const std::string& peerId = pMsg->m_myinfo.m_id;
-	const PPeerAddr& peerAddr = pMsg->m_myinfo.m_addr;
-	LOG_INFO("peer id:%s %s rtt:%llu(ms)", peerId.c_str(), peerAddr.toString().c_str(), rtt);
+	const std::string& peerId = pMsg->m_myInfo.m_id;
+	PeerAddr& peerAddr = pMsg->m_myInfo.m_addr;
 
-	PeerAddr addr;
-	addr.m_ip = peerAddr.m_ip;
-	addr.m_port = peerAddr.m_port;
-	addr.m_socketType = peerAddr.m_socketType == 0 ? SocketType::tcp : SocketType::udp;
-	auto itr = m_peers.find(peerId);
-	if(itr != m_peers.end()){
-		if(itr->second.m_addr == addr){
-			itr->second.m_addr.m_rtt = (itr->second.m_addr.m_rtt * 3 + rtt)/4;
-		}
-		else{
-			itr->second.m_addr.m_rtt = rtt;
-		}
-		itr->second.m_addr = addr;
-	}
-	else{
-		addr.m_rtt = rtt;
-		Peer peerinfo;
-		peerinfo.m_addr = addr;
-		peerinfo.m_id = peerId;
-		m_peers[peerId] = peerinfo;
+	peerAddr.m_rtt = rtt; 
+	if(!SetPeerAddr(peerId, peerAddr)){
+		LOG_INFO("set peer addr failed. peerid:%s %s rtt:%llu(ms)", 
+			peerId.c_str(), peerAddr.toString().c_str(), rtt);
+		return false;
 	}
 
+	return true;
+}
+
+bool Server::HandleHeatBeatMessage(const PacketHeader& header, std::shared_ptr<HeartbeatMessage> pMsg, SocketBase* s){
+	const std::string& peerId = pMsg->m_myInfo.m_id;
+	const PeerAddr& peerAddr = pMsg->m_myInfo.m_addr;
+	const ProposalID& leaderProposalID = pMsg->m_leaderProposalID;
+	LOG_INFO("peer id:%s %s %s", peerId.c_str(), peerAddr.toString().c_str(), 
+		leaderProposalID.toString().c_str());
+
+	if(!SetPeerAddr(peerId, peerAddr)){
+		LOG_ERROR("set peer addr failed. peerid:%s %s", 
+			peerId.c_str(), peerAddr.toString().c_str());
+		return false;
+	}
+	receiveHeartbeat(peerId, leaderProposalID);
 	return true;
 }
 
@@ -249,6 +290,16 @@ bool Server::Connect(uint32_t ip, int port, SocketType type, int* pfd){
 		break;
 	}
 	return ret;
+}
+
+//发送ping消息
+void Server::SendPingMessage()
+{
+	PingMessage ping;
+	ping.m_timestamp = Util::GetMonoTimeMs();
+	ping.m_myInfo.m_id = m_myUID;
+	ping.m_myInfo.m_addr = GetMyTcpAddr();
+	SendMessageToAllPeer(PingMessage::cmd, ping);
 }
 
 bool Server::SendMessage(uint16_t cmd, const Marshallable& msg, SocketBase* s){
@@ -276,9 +327,9 @@ void Server::SendMessageToPeer(uint16_t cmd, const Marshallable& msg, PeerAddr& 
 }
 
 void Server::SendMessageToAllPeer(uint16_t cmd, const Marshallable& msg){
-	for(std::map<std::string, Peer>::iterator itr = m_peers.begin(); itr!=m_peers.end(); ++itr){
+	for(std::map<std::string, PeerInfo>::iterator itr = m_peers.begin(); itr!=m_peers.end(); ++itr){
 		const std::string& peerid = itr->first;
-		Peer& peer = itr->second;
+		PeerInfo& peer = itr->second;
 		SendMessageToPeer(cmd, msg, peer.m_addr);
 		LOG_INFO("send ping to peer %s %s", peerid.c_str(), peer.m_addr.toString().c_str());
 	}
@@ -294,22 +345,6 @@ void Server::SendMessageToStablePeer(uint16_t cmd, const Marshallable& msg){
 	return;
 }
 
-
-PPeerAddr Server::GetMyTcpAddr(){
-	PPeerAddr addr;
-	addr.m_ip = m_localIP;
-	addr.m_port = m_localTcpPort;
-	addr.m_socketType = 0;
-	return addr;
-}
-
-PPeerAddr Server::GetMyUdpAddr(){
-	PPeerAddr addr;
-	addr.m_ip = m_localIP;
-	addr.m_port = m_localUdpPort;
-	addr.m_socketType = 1;
-	return addr;
-}
 
 /**
  * @brief 选择一个Acceptor大多数构成的集合，采用轮训机制
@@ -523,12 +558,16 @@ void Server::onLeadershipChange(const std::string& previousLeaderUID,
 
 //发送心跳
 void Server::sendHeartbeat(const ProposalID& leaderProposalID)
-{
+{	
 	HeartbeatMessage heartbeat;
-	heartbeat.m_timestamp = Util::GetMonoTimeMs();
-	heartbeat.m_myinfo.m_id = m_myUID;
-	heartbeat.m_myinfo.m_addr = GetMyTcpAddr();
-
+	heartbeat.m_myInfo.m_id = m_myUID;
+	heartbeat.m_myInfo.m_addr = GetMyTcpAddr();
+	heartbeat.m_leaderProposalID.m_number = leaderProposalID.m_number;
+	heartbeat.m_leaderProposalID.m_uid = leaderProposalID.m_uid;
 	SendMessageToAllPeer(HeartbeatMessage::cmd, heartbeat);
-	SendMessageToStablePeer(HeartbeatMessage::cmd, heartbeat);
+}
+
+
+void Server::addTimer(long millisecondDelay, std::function<void()>){
+	
 }

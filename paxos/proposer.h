@@ -9,7 +9,7 @@
 class Proposer
 {
 public:
-    Proposer(std::shared_ptr<Messenger> messenger, const std::string& proposerUID, int quorumSize);
+    Proposer(Messenger& messenger, const std::string& proposerUID, int quorumSize);
     ~Proposer();
 
     void prepare(bool incrementProposalNumber);
@@ -35,7 +35,7 @@ public:
 	void setActive(bool active);
 private:
     //网络通信接口
-    std::shared_ptr<Messenger> m_messenger;
+    Messenger& m_messenger;
     //Proposer的UID
     std::string m_proposerUID;
     //达成一致要求的最小Acceptor数量

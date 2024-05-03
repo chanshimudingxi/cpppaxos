@@ -1,8 +1,7 @@
 #include "learner.h"
 
-Learner::Learner(std::shared_ptr<Messenger> messenger, const std::string& learnerUID, int quorumSize ) 
+Learner::Learner(Messenger& messenger, const std::string& learnerUID, int quorumSize ):m_messenger(messenger)
 {
-    m_messenger  = messenger;
     m_learnerUID = learnerUID;
     m_quorumSize = quorumSize;
 }
@@ -80,7 +79,7 @@ void Learner::receiveAccepted(const std::string& fromUID, const ProposalID& prop
             m_proposals.clear();
             m_acceptors.clear();
             
-            m_messenger->onResolution(proposalID, acceptedValue);
+            m_messenger.onResolution(proposalID, acceptedValue);
         }
     }
 }
