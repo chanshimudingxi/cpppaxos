@@ -21,20 +21,20 @@ Server::~Server(){
 	}
 }
 
-bool Server::Init(const std::string& localIP, uint16_t localTcpPort, uint16_t localUdpPort, 
-	const std::string& dstIP, uint16_t dstTcpPort, uint16_t dstUdpPort){
+bool Server::Init(SocketType type, const std::string& localIP, uint16_t localPort, 
+		const std::string& dstIP, uint16_t dstPort){
 
     if(!m_container->Init()){
         return false;
     }
 	m_localIP = inet_addr(localIP.c_str());
-	m_localTcpPort = localTcpPort;
-	m_localUdpPort = localUdpPort;
+	m_localPort = localPort;
+	m_socketType = type;
 
 	PeerInfo peer;
 	peer.m_addr.m_ip = inet_addr(dstIP.c_str());
-	peer.m_addr.m_port = dstTcpPort;
-	peer.m_addr.m_socketType = SocketType::tcp;
+	peer.m_addr.m_port = dstPort;
+	peer.m_addr.m_socketType = type;
 	m_stableAddrs.push_back(peer);
 	return true;
 }
@@ -58,18 +58,12 @@ bool Server::Listen(int port, int backlog, SocketType type){
 }
 
 bool Server::Run(){
-	if(!Listen(m_localTcpPort, 10, SocketType::tcp)){
+	if(!Listen(m_localPort, 10, m_socketType)){
 		return false;
 	}
-	if(!Listen(m_localUdpPort, 10, SocketType::udp)){
-		return false;
-	}
-
 	while(true){
-		uint64_t start = Util::GetMonoTimeUs();
 		m_container->HandleSockets();
 		m_timerManager.checkTimer();
-		uint64_t end = Util::GetMonoTimeUs();
     }
 	return false;
 }
@@ -85,7 +79,7 @@ int Server::HandlePacket(const char* data, size_t size, SocketBase* s){
     }
     uint16_t packetSize = Decoder::pickLen(data);
     if(packetSize > Decoder::maxSize()){
-		LOG_ERROR("packet size:%u exceed limit:%u",packetSize, Decoder::maxSize());
+		LOG_ERROR("packet size:%u exceed limit:%zd",packetSize, Decoder::maxSize());
         return -1;
     }
     if(packetSize > size){
@@ -95,7 +89,7 @@ int Server::HandlePacket(const char* data, size_t size, SocketBase* s){
     uint32_t seq = Decoder::pickSeq(data);
 	uint16_t subLen = Decoder::pickSubLen(data);
 	if(subLen > Decoder::maxSize()){
-		LOG_ERROR("packet seq:%u size:%u subsize:%u exceed limit:%u", seq, packetSize, subLen, Decoder::maxSize());
+		LOG_ERROR("packet seq:%u size:%u subsize:%u exceed limit:%zd", seq, packetSize, subLen, Decoder::maxSize());
         return -1;
     }
     if(subLen + Decoder::mainHeaderSize() > size){
@@ -206,11 +200,11 @@ bool Server::HandleMessage(const PacketHeader& header, std::shared_ptr<Marshalla
 	return ret;
 }
 
-PeerInfo Server::GetMyNodeInfo(SocketType type){
+PeerInfo Server::GetMyNodeInfo(){
 	PeerInfo p;
 	p.m_addr.m_ip = m_localIP;
-	p.m_addr.m_port = SocketType::tcp == type ? m_localTcpPort : m_localUdpPort;
-	p.m_addr.m_socketType = type;
+	p.m_addr.m_port = m_localPort;
+	p.m_addr.m_socketType = m_socketType;
 	p.m_id = m_myUID;
 	return p;
 }
@@ -271,7 +265,8 @@ bool Server::HandlePingMessage(const PacketHeader& header, std::shared_ptr<PingM
 
 	PongMessage rsp;
 	rsp.m_timestamp = pMsg->m_timestamp;
-	rsp.m_myInfo = GetMyNodeInfo(SocketType::tcp);
+	rsp.m_myInfo = GetMyNodeInfo();
+	LOG_INFO("send pong message to peer id:%s %s", peerId.c_str(), peerAddr.toString().c_str());
 	SendMessage(PongMessage::cmd, rsp, s);
 	return true;
 }
@@ -282,7 +277,7 @@ bool Server::HandlePongMessage(const PacketHeader& header, std::shared_ptr<PongM
 	uint64_t rtt = now > lastStamp ? now - lastStamp : 0;
 	const std::string& peerId = pMsg->m_myInfo.m_id;
 	PeerAddr& peerAddr = pMsg->m_myInfo.m_addr;
-	LOG_INFO("peer id:%s %s rtt:%lu", peerId.c_str(), peerAddr.toString().c_str(), rtt);
+	LOG_INFO("peer id:%s %s rtt:%llu", peerId.c_str(), peerAddr.toString().c_str(), rtt);
 
 	if(!AddPeerInfo(peerId, peerAddr)){
 		LOG_INFO("set peer addr failed. peerid:%s %s rtt:%llu(ms)", 
@@ -329,13 +324,13 @@ void Server::SendPingMessage()
 {
 	PingMessage ping;
 	ping.m_timestamp = Util::GetMonoTimeMs();
-	ping.m_myInfo = GetMyNodeInfo(SocketType::tcp);
+	ping.m_myInfo = GetMyNodeInfo();
 	for(auto& peer : m_peers){
 		ping.m_peers.insert(peer.second);
 	}
 	SendMessageToAllPeer(PingMessage::cmd, ping);
 	SendMessageToStablePeer(PingMessage::cmd, ping);
-	LOG_INFO("send ping message timestamp:%lu", ping.m_timestamp);
+	LOG_INFO("send ping message timestamp:%llu", ping.m_timestamp);
 }
 
 bool Server::SendMessage(uint16_t cmd, const Marshallable& msg, SocketBase* s){
@@ -429,7 +424,7 @@ void Server::sendPrepare(const ProposalID& proposalID){
 	PrepareMessage prepare;
 	prepare.m_proposalID.m_number = proposalID.m_number;
 	prepare.m_proposalID.m_uid = proposalID.m_uid;
-	prepare.m_myInfo = GetMyNodeInfo(SocketType::tcp);
+	prepare.m_myInfo = GetMyNodeInfo();
 
 	for(auto acceptorUID : m_majorityAcceptors){
 		auto peerItr = m_peers.find(acceptorUID);
@@ -451,7 +446,7 @@ void Server::sendPrepare(const ProposalID& proposalID){
 void Server::sendPromise(const std::string& toUID, const ProposalID& proposalID, 
 	const ProposalID& acceptID, const std::string& acceptValue){
 	PromiseMessage promise;
-	promise.m_myInfo = GetMyNodeInfo(SocketType::tcp);
+	promise.m_myInfo = GetMyNodeInfo();
 
 	promise.m_proposalID.m_number = proposalID.m_number;
 	promise.m_proposalID.m_uid = proposalID.m_uid;
@@ -478,7 +473,7 @@ void Server::sendPromise(const std::string& toUID, const ProposalID& proposalID,
 void Server::sendAccept(const ProposalID&  proposalID, 
 	const std::string& proposalValue){
 	AcceptMessage accept;
-	accept.m_myInfo = GetMyNodeInfo(SocketType::tcp);
+	accept.m_myInfo = GetMyNodeInfo();
 
 	accept.m_proposalID.m_number = proposalID.m_number;
 	accept.m_proposalID.m_uid = proposalID.m_uid;
@@ -504,7 +499,7 @@ void Server::sendPermit(const std::string& proposerUID, const ProposalID&  propo
 	const std::string& acceptedValue)
 {
 	PermitMessage premit;
-	premit.m_myInfo = GetMyNodeInfo(SocketType::tcp);
+	premit.m_myInfo = GetMyNodeInfo();
 	premit.m_proposalID.m_number = proposalID.m_number;
 	premit.m_proposalID.m_uid = proposalID.m_uid;
 	premit.m_acceptedValue = acceptedValue;
@@ -539,7 +534,7 @@ void Server::sendPrepareNACK(const std::string& proposerUID, const ProposalID& p
 	const ProposalID& promisedID)
 {
 	PrepareAckMessage ack;
-	ack.m_myInfo = GetMyNodeInfo(SocketType::tcp);
+	ack.m_myInfo = GetMyNodeInfo();
 	ack.m_proposalID.m_number = proposalID.m_number;
 	ack.m_proposalID.m_uid = proposalID.m_uid;
 	ack.m_promiseID.m_number = promisedID.m_number;
@@ -563,7 +558,7 @@ void Server::sendAcceptNACK(const std::string& proposerUID, const ProposalID& pr
 	const ProposalID& promisedID)
 {
 	AcceptAckMessage ack;
-	ack.m_myInfo = GetMyNodeInfo(SocketType::tcp);
+	ack.m_myInfo = GetMyNodeInfo();
 	ack.m_proposalID.m_number = proposalID.m_number;
 	ack.m_proposalID.m_uid = proposalID.m_uid;
 	ack.m_promiseID.m_number = promisedID.m_number;
@@ -600,7 +595,7 @@ void Server::onLeadershipChange(const std::string& previousLeaderUID,
 void Server::sendHeartbeat(const ProposalID& leaderProposalID)
 {	
 	HeartbeatMessage heartbeat;
-	heartbeat.m_myInfo = GetMyNodeInfo(SocketType::tcp);
+	heartbeat.m_myInfo = GetMyNodeInfo();
 	heartbeat.m_leaderProposalID.m_number = leaderProposalID.m_number;
 	heartbeat.m_leaderProposalID.m_uid = leaderProposalID.m_uid;
 	SendMessageToAllPeer(HeartbeatMessage::cmd, heartbeat);

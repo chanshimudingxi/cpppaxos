@@ -152,35 +152,31 @@ int main(int argc, char** argv){
 	char* myID;
 	char *localIp = nullptr;
 	std::string localSip = "127.0.0.1";
-	int localTcpPort = -1;
-	int localUdpPort = -1;
+	int localPort = -1;
 	char* dstIp = nullptr;
 	std::string dstSip = "127.0.0.1";
-	int dstTcpPort = -1;
-	int dstUdpPort = -1;
-
-    while( (ret = getopt(argc, argv, "s:a:b:c:d:e:f:")) != -1 ){
+	int dstPort = -1;
+	char* conntype = nullptr;
+	SocketType type = SocketType::tcp;
+    while( (ret = getopt(argc, argv, "s:x:y:m:n:t:")) != -1 ){
         switch(ret){
 			case 's':
 				myID = optarg;
 				break;
-			case 'a':
+			case 't':
+				conntype = optarg;
+				break;
+			case 'x':
 				localIp = optarg;
 				break;
-			case 'b':
-				localTcpPort = atoi(optarg);
+			case 'y':
+				localPort = atoi(optarg);
 				break;
-			case 'c':
-				localUdpPort = atoi(optarg);
-				break;
-			case 'd':
+			case 'm':
 				dstIp = optarg;
 				break;
-			case 'e':
-				dstTcpPort = atoi(optarg);
-				break;
-			case 'f':
-				dstUdpPort = atoi(optarg);
+			case 'n':
+				dstPort = atoi(optarg);
 				break;
 			default:
 				break;
@@ -190,29 +186,26 @@ int main(int argc, char** argv){
 	if(myID != nullptr){
 		mySID = myID;
 	}
+	if(conntype != nullptr && strncmp(conntype,"udp", 3) == 0){
+		type = SocketType::udp;
+	}
 	if(localIp != nullptr){
 		localSip = localIp;
 	}
 	if(dstIp != nullptr){
 		dstSip = dstIp;
 	}
-	if(localTcpPort == -1){
-		localTcpPort = 10000;
+	if(localPort == -1){
+		localPort = 10000;
 	}
-	if(localUdpPort == -1){
-		localUdpPort = 20000;
-	}
-	if(dstTcpPort == -1){
-		dstTcpPort = 10001;
-	}
-	if(dstUdpPort == -1){
-		dstUdpPort = 20001;
+	if(dstPort == -1){
+		dstPort = 20000;
 	}
 
-	LOG_INFO("mySID: %s, localSip: %s, localTcpPort: %d, localUdpPort: %d, dstSip: %s, dstTcpPort: %d, dstUdpPort: %d", 
-		mySID.c_str(), localSip.c_str(), localTcpPort, localUdpPort, dstSip.c_str(), dstTcpPort, dstUdpPort);
+	LOG_INFO("mySID: %s, type:%s localIP: %s, localPort: %d, dstIP: %s, dstPort: %d", 
+		mySID.c_str(), SocketBase::toString(type).c_str(), localSip.c_str(), localPort, dstSip.c_str(), dstPort);
 	Server server(mySID, 3);
-	if(!server.Init(localSip, localTcpPort, localUdpPort, dstSip, dstTcpPort, dstUdpPort)){
+	if(!server.Init(type, localSip, localPort, dstSip, dstPort)){
 		return -1;
 	}
 	if(!server.Run()){

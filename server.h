@@ -28,8 +28,8 @@ class Server : public Messenger, PacketHandler, std::enable_shared_from_this<Ser
 public:
     Server(const std::string& myid, int quorumSize);
     ~Server();
-	bool Init(const std::string& localIP, uint16_t localTcpPort, uint16_t localUdpPort, 
-		const std::string& dstIP, uint16_t dstTcpPort, uint16_t dstUdpPort);
+	bool Init(SocketType type, const std::string& localIP, uint16_t localPort, 
+		const std::string& dstIP, uint16_t dstPort);
 	bool Run();
 	bool Listen(int port, int backlog, SocketType type);
     virtual int HandlePacket(const char* data, size_t size, SocketBase* s);
@@ -42,7 +42,7 @@ public:
 	void SendMessageToStablePeer(uint16_t cmd, const Marshallable& msg);
 
 	//获取本地地址
-	PeerInfo GetMyNodeInfo(SocketType type);
+	PeerInfo GetMyNodeInfo();
 	bool AddPeerInfo(std::string peerId, const PeerAddr& peerAddr);
 	void UpdatePeerInfo(std::string peerId, uint64_t rtt);
 	void RemovePeerInfo(std::string peerId);
@@ -95,8 +95,8 @@ private:
 	//自己的节点信息
 	std::string m_myUID;
 	uint32_t m_localIP;
-	uint16_t m_localTcpPort;
-	uint16_t m_localUdpPort;
+	uint16_t m_localPort;
+	SocketType m_socketType;
 	//集群稳定的节点，相当于P2P网络中稳定的公有节点
 	std::vector<PeerInfo> m_stableAddrs;
 	//集群所有节点
