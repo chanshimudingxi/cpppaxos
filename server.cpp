@@ -71,6 +71,7 @@ bool Server::Run(){
 		m_timerManager.checkTimer();
 		uint64_t end = Util::GetMonoTimeUs();
     }
+	return false;
 }
 
 int Server::HandlePacket(const char* data, size_t size, SocketBase* s){
@@ -158,6 +159,21 @@ int Server::HandlePacket(const char* data, size_t size, SocketBase* s){
 void Server::HandleClose(SocketBase* s){
 	LOG_INFO("close socket:%p fd:%d peer:%s:%u", s, s->GetFd(), inet_ntoa(s->GetPeerAddr().sin_addr), ntohs(s->GetPeerAddr().sin_port));
 	//TODO 依赖socket状态的地方都要清除
+	auto itr = m_socket2addr.find(s);
+	if(itr != m_socket2addr.end()){
+		PeerAddr& addr = itr->second;
+		auto itr2 = m_addr2socket.find(addr);
+		if(itr2 != m_addr2socket.end()){
+			m_addr2socket.erase(itr2);
+		}
+		else{
+			LOG_ERROR("socket:%p addr:%s not match", s, addr.toString().c_str());
+		}
+		m_socket2addr.erase(itr);
+	}
+	else{
+		LOG_DEBUG("socket:%p is a accept socket", s);
+	}
 }
 
 bool Server::HandleMessage(const PacketHeader& header, std::shared_ptr<Marshallable> pMsg, SocketBase* s){
@@ -199,17 +215,14 @@ PeerInfo Server::GetMyNodeInfo(SocketType type){
 	return p;
 }
 
-bool Server::SetPeerAddr(std::string peerId, const PeerAddr& addr){
+bool Server::AddPeerInfo(std::string peerId, const PeerAddr& addr){
 	auto itr = m_peers.find(peerId);
 	if(itr != m_peers.end()){
-		PeerAddr& curaddr = itr->second.m_addr;
-		if(curaddr == addr){
-			curaddr.m_rtt = (curaddr.m_rtt * 3 + addr.m_rtt)/4;
-		}
-		else{
+		PeerInfo& peer = itr->second;
+		if(peer.m_addr != addr){
 			LOG_ERROR("peer %s addr %s already exist %s", 
 				peerId.c_str(), addr.toString().c_str(), 
-				curaddr.toString().c_str());
+				peer.m_addr.toString().c_str());
 			return false;
 		}
 	}
@@ -222,6 +235,19 @@ bool Server::SetPeerAddr(std::string peerId, const PeerAddr& addr){
 	}
 	return true;
 }
+
+void Server::UpdatePeerInfo(std::string peerId, uint64_t rtt){
+	auto itr = m_peers.find(peerId);
+	if(itr != m_peers.end()){
+		PeerInfo& peer = itr->second;
+		peer.m_rtt = (peer.m_rtt * 3 + rtt)/4;
+	}
+}
+
+void Server::RemovePeerInfo(std::string peerId){
+	m_peers.erase(peerId);
+}
+
 
 void Server::updateStableAddr(std::string peerId, const PeerAddr& addr)
 {
@@ -237,7 +263,7 @@ bool Server::HandlePingMessage(const PacketHeader& header, std::shared_ptr<PingM
 	const PeerAddr& peerAddr = pMsg->m_myInfo.m_addr;
 	LOG_INFO("peer id:%s %s", peerId.c_str(), peerAddr.toString().c_str());
 
-	if(!SetPeerAddr(peerId, peerAddr)){
+	if(!AddPeerInfo(peerId, peerAddr)){
 		LOG_ERROR("set peer addr failed. peerid:%s %s", 
 			peerId.c_str(), peerAddr.toString().c_str());
 		return false;
@@ -257,13 +283,12 @@ bool Server::HandlePongMessage(const PacketHeader& header, std::shared_ptr<PongM
 	const std::string& peerId = pMsg->m_myInfo.m_id;
 	PeerAddr& peerAddr = pMsg->m_myInfo.m_addr;
 
-	peerAddr.m_rtt = rtt; 
-	if(!SetPeerAddr(peerId, peerAddr)){
+	if(!AddPeerInfo(peerId, peerAddr)){
 		LOG_INFO("set peer addr failed. peerid:%s %s rtt:%llu(ms)", 
 			peerId.c_str(), peerAddr.toString().c_str(), rtt);
 		return false;
 	}
-
+	UpdatePeerInfo(peerId, rtt);
 	return true;
 }
 
@@ -274,7 +299,7 @@ bool Server::HandleHeatBeatMessage(const PacketHeader& header, std::shared_ptr<H
 	LOG_INFO("peer id:%s %s %s", peerId.c_str(), peerAddr.toString().c_str(), 
 		leaderProposalID.toString().c_str());
 
-	if(!SetPeerAddr(peerId, peerAddr)){
+	if(!AddPeerInfo(peerId, peerAddr)){
 		LOG_ERROR("set peer addr failed. peerid:%s %s", 
 			peerId.c_str(), peerAddr.toString().c_str());
 		return false;
@@ -283,19 +308,19 @@ bool Server::HandleHeatBeatMessage(const PacketHeader& header, std::shared_ptr<H
 	return true;
 }
 
-bool Server::Connect(uint32_t ip, int port, SocketType type, int* pfd){
-	bool ret = false;
+SocketBase* Server::Connect(uint32_t ip, int port, SocketType type){
+	SocketBase* pSocket = nullptr;
 	switch(type){
 	case SocketType::tcp:
-		ret = TcpSocket::Connect(ip, port, m_container, this, pfd);
+		pSocket = TcpSocket::Connect(ip, port, m_container, this);
 		break;
 	case SocketType::udp:
-		ret = UdpSocket::Connect(ip, port, m_container, this, pfd);
+		pSocket = UdpSocket::Connect(ip, port, m_container, this);
 		break;
 	default:
 		break;
 	}
-	return ret;
+	return pSocket;
 }
 
 //发送ping消息
@@ -322,16 +347,24 @@ bool Server::SendMessage(uint16_t cmd, const Marshallable& msg, SocketBase* s){
 }
 
 void Server::SendMessageToPeer(uint16_t cmd, const Marshallable& msg, PeerAddr& addr){
-	if(addr.m_fd == -1){
-		Connect(addr.m_ip, addr.m_port, addr.m_socketType, &addr.m_fd);
-	}
-
-	SocketBase* pSock = m_container->GetSocket(addr.m_fd);
-	if(nullptr == pSock){
-		LOG_ERROR("fd:%d get connect failed", addr.m_fd);
+	auto itr = m_addr2socket.find(addr);
+	if(itr == m_addr2socket.end()){
+		SocketBase* pSocket = Connect(addr.m_ip, addr.m_port, addr.m_socketType);
+		if(pSocket == nullptr){
+			LOG_ERROR("connect to %s failed", addr.toString().c_str());
+			return;
+		}
+		m_addr2socket[addr] = pSocket;
+		m_socket2addr[pSocket] = addr;
 	}
 	else{
-		SendMessage(cmd, msg, pSock);
+		SocketBase* pSocket = itr->second;
+		if(nullptr == pSocket){
+			LOG_ERROR("%s get null socket", addr.toString().c_str());
+		}
+		else{
+			SendMessage(cmd, msg, pSocket);
+		}
 	}
 }
 

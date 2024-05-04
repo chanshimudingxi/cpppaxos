@@ -122,14 +122,15 @@ void set_signal_handler(){
 int main(int argc, char** argv){
 	int ret = 0;
 
-	const std::string logfile = Util::getCWD() + "/log";
+	pid_t pid = getpid();
+	const std::string logfile = Util::getCWD() + "/"+ std::to_string(pid) + ".log";
 	fprintf(stderr, "logfile %s\n", logfile.c_str());
 	ret = setlogfile(logfile);
 	if(ret < 0){
 		fprintf(stderr, "setlogfile failed\n");
 		return -1;
 	}
-	setloglevel(Logger::INFO);
+	setloglevel(Logger::DEBUG);
 
 	// if(daemonize() == -1){
 	// 	return -1;

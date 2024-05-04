@@ -10,16 +10,12 @@
 
 
 struct PeerAddr: public Marshallable{
-	PeerAddr():m_ip(0),m_port(0),m_socketType(SocketType::tcp),m_fd(-1),m_rtt(100){}
-	PeerAddr(const PeerAddr& addr):m_ip(addr.m_ip),m_port(addr.m_port),
-		m_socketType(addr.m_socketType),m_fd(addr.m_fd),m_rtt(addr.m_rtt){
-	}
+	PeerAddr():m_ip(0),m_port(0),m_socketType(SocketType::tcp){}
+	PeerAddr(const PeerAddr& addr):m_ip(addr.m_ip),m_port(addr.m_port),m_socketType(addr.m_socketType){}
 	PeerAddr& operator =(const PeerAddr& addr){
 		m_ip = addr.m_ip;
 		m_port = addr.m_port;
 		m_socketType = addr.m_socketType;
-		m_fd = addr.m_fd;
-		m_rtt = addr.m_rtt;
 		return *this;
 	}
 	~PeerAddr(){}
@@ -85,20 +81,20 @@ struct PeerAddr: public Marshallable{
 	uint32_t m_ip;
 	uint16_t m_port;
 	SocketType m_socketType;
-	int m_fd;
-	int64_t m_rtt;
 };
 
 struct PeerInfo: public Marshallable{
 	std::string m_id;
 	PeerAddr m_addr;
+	uint64_t m_rtt;
 
 	PeerInfo(){}
-	PeerInfo(const PeerInfo& p):m_id(p.m_id), m_addr(p.m_addr){
+	PeerInfo(const PeerInfo& p):m_id(p.m_id), m_addr(p.m_addr), m_rtt(100){
 	}
 	PeerInfo& operator = (const PeerInfo& p){
 		m_id = p.m_id;
 		m_addr = p.m_addr;
+		m_rtt = p.m_rtt;
 		return *this;
 	}
 	~PeerInfo(){}

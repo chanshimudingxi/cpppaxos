@@ -35,7 +35,7 @@ public:
     virtual int HandlePacket(const char* data, size_t size, SocketBase* s);
 	virtual void HandleClose(SocketBase* s);
 	bool HandleMessage(const PacketHeader& header, std::shared_ptr<Marshallable> pMsg, SocketBase* s);
-	bool Connect(uint32_t ip, int port, SocketType type, int* pfd);
+	SocketBase* Connect(uint32_t ip, int port, SocketType type);
 	bool SendMessage(uint16_t cmd, const Marshallable& msg, SocketBase* s);
 	void SendMessageToPeer(uint16_t cmd, const Marshallable& msg, PeerAddr& addr);
 	void SendMessageToAllPeer(uint16_t cmd, const Marshallable& msg);
@@ -43,7 +43,9 @@ public:
 
 	//获取本地地址
 	PeerInfo GetMyNodeInfo(SocketType type);
-	bool SetPeerAddr(std::string peerId, const PeerAddr& peerAddr);
+	bool AddPeerInfo(std::string peerId, const PeerAddr& peerAddr);
+	void UpdatePeerInfo(std::string peerId, uint64_t rtt);
+	void RemovePeerInfo(std::string peerId);
 	void updateStableAddr(std::string peerId, const PeerAddr& addr);
 	bool HandlePingMessage(const PacketHeader& header, std::shared_ptr<PingMessage> pMsg, SocketBase* s);
 	bool HandlePongMessage(const PacketHeader& header, std::shared_ptr<PongMessage> pMsg, SocketBase* s);
@@ -97,8 +99,11 @@ private:
 	uint16_t m_localUdpPort;
 	//集群稳定的节点，相当于P2P网络中稳定的公有节点
 	std::vector<PeerInfo> m_stableAddrs;
-	//集群其他节点
+	//集群所有节点
 	std::map<std::string, PeerInfo> m_peers;
+	//集群所有节点
+	std::map<PeerAddr, SocketBase*> m_addr2socket;
+	std::map<SocketBase*, PeerAddr> m_socket2addr;
 	//已经选择过的最大的节点id
 	std::string m_maxChoosenAcceptorUID;
 
