@@ -80,27 +80,27 @@ int Server::HandlePacket(const char* data, size_t size, SocketBase* s){
         return -1;
     }
     if(size < Decoder::minSize()){
-		LOG_DEBUG("packet len:%zd too short",size);
+		LOG_DEBUG("packet recv len:%zd too short",size);
         return 0;
     }
     uint16_t packetSize = Decoder::pickLen(data);
     if(packetSize > Decoder::maxSize()){
-		LOG_ERROR("packet exceed limit:%u",packetSize);
+		LOG_ERROR("packet size:%u exceed limit:%u",packetSize, Decoder::maxSize());
         return -1;
     }
     if(packetSize > size){
-		LOG_DEBUG("packet len:%zd too short",size);
+		LOG_DEBUG("packet size:%u recv len:%zd too short", packetSize,  size);
         return 0;
     }
     uint32_t seq = Decoder::pickSeq(data);
 	uint16_t subLen = Decoder::pickSubLen(data);
 	if(subLen > Decoder::maxSize()){
-		LOG_ERROR("packet exceed limit:%u",subLen);
+		LOG_ERROR("packet seq:%u size:%u subsize:%u exceed limit:%u", seq, packetSize, subLen, Decoder::maxSize());
         return -1;
     }
-    if(subLen > size - Decoder::mainHeaderSize()){
-		LOG_DEBUG("packet len:%zd too short",size);
-        return 0;
+    if(subLen + Decoder::mainHeaderSize() > size){
+		LOG_ERROR("packet seq:%u size:%u subsize:%u recv len:%zd too short", seq, packetSize, subLen, size);
+        return -1;
     }
 	uint16_t subCmd = Decoder::pickSubCmd(data);
 	LOG_DEBUG("unpack:\n%s", Util::DumpHex(data, packetSize).c_str());
@@ -282,6 +282,7 @@ bool Server::HandlePongMessage(const PacketHeader& header, std::shared_ptr<PongM
 	uint64_t rtt = now > lastStamp ? now - lastStamp : 0;
 	const std::string& peerId = pMsg->m_myInfo.m_id;
 	PeerAddr& peerAddr = pMsg->m_myInfo.m_addr;
+	LOG_INFO("peer id:%s %s rtt:%lu", peerId.c_str(), peerAddr.toString().c_str(), rtt);
 
 	if(!AddPeerInfo(peerId, peerAddr)){
 		LOG_INFO("set peer addr failed. peerid:%s %s rtt:%llu(ms)", 
@@ -334,6 +335,7 @@ void Server::SendPingMessage()
 	}
 	SendMessageToAllPeer(PingMessage::cmd, ping);
 	SendMessageToStablePeer(PingMessage::cmd, ping);
+	LOG_INFO("send ping message timestamp:%lu", ping.m_timestamp);
 }
 
 bool Server::SendMessage(uint16_t cmd, const Marshallable& msg, SocketBase* s){
@@ -373,7 +375,7 @@ void Server::SendMessageToAllPeer(uint16_t cmd, const Marshallable& msg){
 		const std::string& peerid = itr->first;
 		PeerInfo& peer = itr->second;
 		SendMessageToPeer(cmd, msg, peer.m_addr);
-		LOG_INFO("send ping to peer %s %s", peerid.c_str(), peer.m_addr.toString().c_str());
+		LOG_DEBUG("send message cmd:%hu to peer %s %s", cmd, peerid.c_str(), peer.m_addr.toString().c_str());
 	}
 	return;
 }
@@ -383,7 +385,7 @@ void Server::SendMessageToStablePeer(uint16_t cmd, const Marshallable& msg){
 		PeerInfo& peer  = m_stableAddrs[i];
 		if(m_peers.find(peer.m_id) == m_peers.end()){
 			SendMessageToPeer(cmd, msg, peer.m_addr);
-			LOG_INFO("send ping to stable addr[%d] %s", i, peer.m_addr.toString().c_str());
+			LOG_DEBUG("send message cmd:%hu to stable addr[%d] %s", cmd, i, peer.m_addr.toString().c_str());
 		}
 	}
 	return;
@@ -602,4 +604,5 @@ void Server::sendHeartbeat(const ProposalID& leaderProposalID)
 	heartbeat.m_leaderProposalID.m_number = leaderProposalID.m_number;
 	heartbeat.m_leaderProposalID.m_uid = leaderProposalID.m_uid;
 	SendMessageToAllPeer(HeartbeatMessage::cmd, heartbeat);
+	LOG_INFO("send heartbeat message %s", heartbeat.m_leaderProposalID.toString().c_str());
 }
