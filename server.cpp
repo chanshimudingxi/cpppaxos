@@ -3,7 +3,7 @@
 #include "paxos/proto.h"
 
 Server::Server(const std::string& myid, int quorumSize):
-	PaxosNode(*this, myid, quorumSize, 10000, 100000, 50000, "")
+	m_paxosNode(*this, myid, quorumSize, 10000, 100000, 50000, "")
 {
 	m_container = new EpollContainer(1000, 1000);
 	assert(nullptr != m_container);
@@ -11,7 +11,8 @@ Server::Server(const std::string& myid, int quorumSize):
 	m_myUID = myid;
 	m_quorumSize = quorumSize;
 
-	m_timers.addTimer(5000, std::bind(&Server::SendPingMessage, this));
+	m_timerManager.addTimer(5000, std::bind(&Server::SendPingMessage, this));
+	m_timerManager.addTimer(10000, std::bind(&PaxosNode::pulse, m_paxosNode));
 }
 
 Server::~Server(){
@@ -67,7 +68,7 @@ bool Server::Run(){
 	while(true){
 		uint64_t start = Util::GetMonoTimeUs();
 		m_container->HandleSockets();
-		m_timers.checkTimer();
+		m_timerManager.checkTimer();
 		uint64_t end = Util::GetMonoTimeUs();
     }
 }
@@ -278,7 +279,7 @@ bool Server::HandleHeatBeatMessage(const PacketHeader& header, std::shared_ptr<H
 			peerId.c_str(), peerAddr.toString().c_str());
 		return false;
 	}
-	receiveHeartbeat(peerId, leaderProposalID);
+	m_paxosNode.receiveHeartbeat(peerId, leaderProposalID);
 	return true;
 }
 
@@ -568,8 +569,4 @@ void Server::sendHeartbeat(const ProposalID& leaderProposalID)
 	heartbeat.m_leaderProposalID.m_number = leaderProposalID.m_number;
 	heartbeat.m_leaderProposalID.m_uid = leaderProposalID.m_uid;
 	SendMessageToAllPeer(HeartbeatMessage::cmd, heartbeat);
-}
-
-void Server::addTimer(long millisecondDelay, std::function<void()> callback){
-	m_timers.addTimer(millisecondDelay, callback);
 }

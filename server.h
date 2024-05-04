@@ -23,7 +23,7 @@
 
 #include "eztimer.h"
 
-class Server : public Messenger, PaxosNode, public PacketHandler, std::enable_shared_from_this<Server>
+class Server : public Messenger, PacketHandler, std::enable_shared_from_this<Server>
 {
 public:
     Server(const std::string& myid, int quorumSize);
@@ -85,13 +85,11 @@ public:
 		const std::string& newLeaderUID);
 	//发送心跳
 	virtual void sendHeartbeat(const ProposalID& leaderProposalID);
-	//注册定时器
-	virtual void addTimer(long millisecondDelay, std::function<void()> callback);
 private:
 	//连接管理容器
 	EpollContainer* m_container;
-
-	EzTimerManager m_timers;
+	PaxosNode m_paxosNode;
+	EzTimerManager m_timerManager;
 	//自己的节点信息
 	std::string m_myUID;
 	uint32_t m_localIP;

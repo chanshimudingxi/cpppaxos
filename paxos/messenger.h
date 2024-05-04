@@ -38,6 +38,4 @@ public:
 	
 	//发送心跳
 	virtual void sendHeartbeat(const ProposalID& leaderProposalID) = 0;
-	//添加定时器
-	virtual void addTimer(long millisecondDelay, std::function<void()>) = 0;
 };

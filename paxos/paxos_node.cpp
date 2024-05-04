@@ -21,8 +21,6 @@ PaxosNode::PaxosNode(Messenger& messenger, const std::string& nodeUID,
 		m_proposer.setLeader(true);
 	}
 
-	m_messenger.addTimer(m_heartbeatPeriod, std::bind(&PaxosNode::pulse, this));
-
 	m_acquiringLeadership = false;
 }
 

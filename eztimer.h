@@ -26,7 +26,7 @@ private:
 
 class EzTimerManager{
 public:
-    EzTimerManager(){}
+    EzTimerManager():m_timers(){}
     ~EzTimerManager(){}
     bool addTimer(long millisecondDelay, std::function<void()> callback){
         m_timers.push_back(EzTimer(millisecondDelay, callback));

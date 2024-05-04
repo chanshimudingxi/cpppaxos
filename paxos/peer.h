@@ -85,8 +85,8 @@ struct PeerAddr: public Marshallable{
 	uint32_t m_ip;
 	uint16_t m_port;
 	SocketType m_socketType;
-	int64_t m_rtt;
 	int m_fd;
+	int64_t m_rtt;
 };
 
 struct PeerInfo: public Marshallable{
