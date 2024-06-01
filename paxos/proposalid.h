@@ -8,7 +8,7 @@
  * @brief 议题编号：议题编号由一个只能持续递增的数字和一个唯一的标识符组成，具有全局唯一性。
  * 
  */
-class ProposalID : public Marshallable
+class ProposalID : public deps::Marshallable
 {
 public:
     ProposalID();
@@ -28,8 +28,8 @@ public:
 	bool operator>(const ProposalID& id) const;
 	bool operator!=(const ProposalID& id) const;
 
-    void marshal(Pack & pk) const;
-    void unmarshal(const Unpack &up);
+    void marshal(deps::Pack & pk) const;
+    void unmarshal(const deps::Unpack &up);
 public:
     uint32_t m_number;
     std::string m_uid;

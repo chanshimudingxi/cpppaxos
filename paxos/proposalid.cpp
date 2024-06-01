@@ -87,10 +87,10 @@ bool ProposalID::operator!=(const ProposalID& id) const
 }
 
 
-void ProposalID::marshal(Pack & pk) const{
+void ProposalID::marshal(deps::Pack & pk) const{
     pk << m_number << m_uid;
 }
 
-void ProposalID::unmarshal(const Unpack &up){
+void ProposalID::unmarshal(const deps::Unpack &up){
     up >> m_number >> m_uid;
 }

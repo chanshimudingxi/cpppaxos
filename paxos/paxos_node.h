@@ -6,8 +6,6 @@
 #include "proposer.h"
 #include "learner.h"
 
-#include "sys/util.h"
-
 class PaxosNode
 {
 public:

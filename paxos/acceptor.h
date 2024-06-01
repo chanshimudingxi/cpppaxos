@@ -5,7 +5,6 @@
 
 #include "proposalid.h"
 #include "messenger.h"
-#include "sys/util.h"
 
 class Acceptor 
 {

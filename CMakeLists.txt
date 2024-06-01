@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 2.8)
+cmake_minimum_required(VERSION 2.8...3.8)
 project(proxy)
 
 add_definitions(-O0 -g2 -ggdb  -Wall -Wno-builtin-macro-redefined -Wno-deprecated)

@@ -1,10 +1,11 @@
 #include "acceptor.h"
+#include "sys/util.h"
 
 Acceptor::Acceptor(Messenger& messenger, const std::string& acceptorUID, int livenessWindow):m_messenger(messenger)
 {
 	m_acceptorUID = acceptorUID;
 	m_livenessWindow = livenessWindow;
-	m_lastPrepareTimestamp   = Util::GetMonoTimeUs();
+	m_lastPrepareTimestamp   = deps::GetMonoTimeUs();
 }
 
 Acceptor::~Acceptor(){}
@@ -49,7 +50,7 @@ void Acceptor::receivePrepare(const std::string& fromUID, const ProposalID& prop
 			m_messenger.sendPrepareNACK(fromUID, proposalID, m_promisedID);
 		}
 	}
-	m_lastPrepareTimestamp = Util::GetMonoTimeUs();
+	m_lastPrepareTimestamp = deps::GetMonoTimeUs();
 }
 
 /**
@@ -96,7 +97,7 @@ void Acceptor::receiveAcceptRequest(const std::string& fromUID, const ProposalID
 
 bool Acceptor::isPrepareExpire()
 {
-	uint64_t waitTime = Util::GetMonoTimeUs() - m_lastPrepareTimestamp;
+	uint64_t waitTime = deps::GetMonoTimeUs() - m_lastPrepareTimestamp;
 	return waitTime > m_livenessWindow;
 }
 

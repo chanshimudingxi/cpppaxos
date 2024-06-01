@@ -3,67 +3,19 @@
 #include <sys/time.h>
 #include <sys/resource.h>
 #include <unistd.h>
+#include <signal.h>
 #ifndef __APPLE__
 #include <sys/prctl.h>
 #endif
-#include "server.h"
+
+#include "sys/tool.h"
 #include "sys/util.h"
+#include "sys/log.h"
+#include "net/socket_base.h"
 
-int daemonize()
-{
-    switch (fork()) {
-    case -1:
-        LOG_ERROR("fork() failed");
-        return -1;
+#include "server.h"
 
-    case 0:
-        break;
-
-    default:
-        exit(0);
-    }
-
-    if (setsid() == -1){
-        LOG_ERROR("setsid failed");
-        return -1;
-    }
-
-    umask(0);
-
-    chdir("/");
-
-    int fd = open("/dev/null", O_RDWR);
-    if (fd == -1) {
-        LOG_ERROR("open /dev/null failed");
-        return -1;
-    }
-
-    if (dup2(fd, STDIN_FILENO) == -1) {
-        LOG_ERROR("dup2(STDIN) failed");
-        return -1;
-    }
-
-    if (dup2(fd, STDOUT_FILENO) == -1) {
-        LOG_ERROR("dup2(STDOUT) failed");
-        return -1;
-    }
-
-    if (dup2(fd, STDERR_FILENO) == -1) {
-        LOG_ERROR("dup2(STDOUT) failed");
-        return -1;
-    }
-	
-	if (fd > STDERR_FILENO) {
-		if (close(fd) == -1) {
-			LOG_ERROR("close() fd failed");
-			return -1;
-		}
-	}
-
-    return 0;
-}
-
-int set_openfd_limit(rlim_t limitSize){
+int set_openfd_limit(unsigned long limitSize){
 	struct rlimit limit;
 
 	if (getrlimit(RLIMIT_NOFILE,&limit) == -1) {
@@ -74,14 +26,14 @@ int set_openfd_limit(rlim_t limitSize){
 	rlim_t oldlimit = limit.rlim_cur;
 	rlim_t oldlimitmax = limit.rlim_max;
 
-	limit.rlim_cur = limitSize;
-	limit.rlim_max = limitSize;
+	limit.rlim_cur = static_cast<rlim_t>(limitSize);
+	limit.rlim_max = static_cast<rlim_t>(limitSize);
 	if (setrlimit(RLIMIT_NOFILE, &limit) == -1) {
 		LOG_ERROR("unable to set the current NOFILE limit (%s)", strerror(errno));
 		return -1;
 	}
 
-	LOG_INFO("set open files old limit: %llu:%llu to limit: %llu:%llu success", 
+	LOG_INFO("set open files old limit: %lu:%lu to limit: %lu:%lu success", 
 		oldlimit, oldlimitmax, limitSize, limitSize);
 	return 0;
 }
@@ -110,54 +62,51 @@ int enalbe_coredump(){
 		return -1;
 	}
 #endif
-	LOG_INFO("set coredump file old limit: %llu:%llu to unlimited success", oldlimit, oldlimitmax);
+	LOG_INFO("set coredump file old limit: %lu:%lu to unlimited success", oldlimit, oldlimitmax);
 	return 0;
 }
 
-void set_signal_handler(){
-    signal(SIGHUP, SIG_IGN);
-    signal(SIGPIPE, SIG_IGN);
-}
-
 int main(int argc, char** argv){
-	int ret = 0;
-
-	pid_t pid = getpid();
-	const std::string logfile = Util::getCWD() + "/"+ std::to_string(pid) + ".log";
-	fprintf(stderr, "logfile %s\n", logfile.c_str());
-	ret = setlogfile(logfile);
+	int ret = deps::daemonize();
 	if(ret < 0){
-		fprintf(stderr, "setlogfile failed\n");
 		return -1;
 	}
-	setloglevel(Logger::DEBUG);
 
-	// if(daemonize() == -1){
-	// 	return -1;
-	// }
-
-	set_signal_handler();
-
-	// if(set_openfd_limit(500000) == -1){
-	// 	return -1;
-	// }
-
-	if(enalbe_coredump() == -1){
+	if(argc < 2){
+		fprintf(stderr, "Usage: %s log_path -s myID -t tcp/udp -x localIP -y localPort -m dstIP -n dstPort\n", argv[0]);
 		return -1;
+	}
+
+	pid_t pid = getpid();
+	const std::string logfile(argv[1]);
+	ret = setlogfile(logfile);
+	if(ret < 0){
+		return -2;
+	}
+	setloglevel(deps::Logger::DEBUG);
+
+	//忽略信号
+    signal(SIGHUP, SIG_IGN);
+    signal(SIGPIPE, SIG_IGN);
+
+	ret = set_openfd_limit(500000);
+	if(ret < 0){
+		return -3;
+	}
+
+	ret = enalbe_coredump();
+	if(ret < 0){
+		return -4;
 	}
 
 	srandom(time(NULL));
 
-	std::string mySID = "123456789";
 	char* myID;
 	char *localIp = nullptr;
-	std::string localSip = "127.0.0.1";
-	int localPort = -1;
 	char* dstIp = nullptr;
-	std::string dstSip = "127.0.0.1";
-	int dstPort = -1;
+	char* localPort = nullptr;
+	char* dstPort = nullptr;
 	char* conntype = nullptr;
-	SocketType type = SocketType::tcp;
     while( (ret = getopt(argc, argv, "s:x:y:m:n:t:")) != -1 ){
         switch(ret){
 			case 's':
@@ -170,42 +119,35 @@ int main(int argc, char** argv){
 				localIp = optarg;
 				break;
 			case 'y':
-				localPort = atoi(optarg);
+				localPort = optarg;
 				break;
 			case 'm':
 				dstIp = optarg;
 				break;
 			case 'n':
-				dstPort = atoi(optarg);
+				dstPort = optarg;
 				break;
 			default:
 				break;
 		}
     }
 
-	if(myID != nullptr){
-		mySID = myID;
-	}
+	std::string mySID = myID != nullptr ? myID : "123456789";
+	std::string localSip = localIp != nullptr ? localIp : "127.0.0.1";
+	int iLocalPort = localPort != nullptr ? atoi(localPort) : 10000;
+	std::string dstSip = dstIp != nullptr ? dstIp : "127.0.0.1";
+	int iDstSPort = dstPort != nullptr ? atoi(dstPort) : 20000;
+	deps::SocketType type = deps::SocketType::tcp;
 	if(conntype != nullptr && strncmp(conntype,"udp", 3) == 0){
-		type = SocketType::udp;
-	}
-	if(localIp != nullptr){
-		localSip = localIp;
-	}
-	if(dstIp != nullptr){
-		dstSip = dstIp;
-	}
-	if(localPort == -1){
-		localPort = 10000;
-	}
-	if(dstPort == -1){
-		dstPort = 20000;
+		type = deps::SocketType::udp;
 	}
 
+	LOG_INFO("pname:%s pid:%d log path %s", argv[0], pid, logfile.c_str());
 	LOG_INFO("mySID: %s, type:%s localIP: %s, localPort: %d, dstIP: %s, dstPort: %d", 
-		mySID.c_str(), SocketBase::toString(type).c_str(), localSip.c_str(), localPort, dstSip.c_str(), dstPort);
+		mySID.c_str(), deps::SocketBase::toString(type).c_str(), localSip.c_str(), 
+		iLocalPort, dstSip.c_str(), iDstSPort);
 	Server server(mySID, 3);
-	if(!server.Init(type, localSip, localPort, dstSip, dstPort)){
+	if(!server.Init(type, localSip, iLocalPort, dstSip, iDstSPort)){
 		return -1;
 	}
 	if(!server.Run()){

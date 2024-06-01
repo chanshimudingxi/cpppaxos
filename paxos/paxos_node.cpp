@@ -2,6 +2,8 @@
 
 #include <functional>
 
+#include "sys/util.h"
+
 PaxosNode::PaxosNode(Messenger& messenger, const std::string& nodeUID, 
 		int quorumSize, int heartbeatPeriod, int heartbeatTimeout, 
 		int livenessWindow, std::string leaderUID):
@@ -12,7 +14,7 @@ PaxosNode::PaxosNode(Messenger& messenger, const std::string& nodeUID,
 {
 	m_heartbeatPeriod = heartbeatPeriod;
 	m_heartbeatTimeout = heartbeatTimeout;
-	m_lastHeartbeatTimestamp = Util::GetMonoTimeUs();
+	m_lastHeartbeatTimestamp = deps::GetMonoTimeUs();
 	m_leaderUID = leaderUID;
 	m_nodeUID = nodeUID;
 
@@ -69,7 +71,7 @@ void PaxosNode::prepare(bool incrementProposalNumber)
 
 bool PaxosNode::isLeaderAlive() 
 {
-	return Util::GetMonoTimeUs() - m_lastHeartbeatTimestamp <= m_heartbeatTimeout;
+	return deps::GetMonoTimeUs() - m_lastHeartbeatTimestamp <= m_heartbeatTimeout;
 }
 
 bool PaxosNode::isPrepareExpire()
@@ -112,7 +114,7 @@ void PaxosNode::receiveHeartbeat(const std::string& fromUID, const ProposalID& p
 	
 	if (m_leaderProposalID.isValid() && m_leaderProposalID == proposalID)
 	{
-		m_lastHeartbeatTimestamp = Util::GetMonoTimeUs();
+		m_lastHeartbeatTimestamp = deps::GetMonoTimeUs();
 	}
 }
 

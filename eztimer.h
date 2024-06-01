@@ -11,7 +11,7 @@ public:
         m_period(millisecondDelay), m_lastExecuteTime(0), m_callback(callback){}
     ~EzTimer(){}
     void execute(){
-        uint64_t nowMs = Util::GetMonoTimeMs();
+        uint64_t nowMs = deps::GetMonoTimeMs();
         if(m_lastExecuteTime == 0 || m_lastExecuteTime + (uint64_t)m_period < nowMs){
             m_lastExecuteTime = nowMs;
             m_callback();
