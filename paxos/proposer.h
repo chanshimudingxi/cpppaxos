@@ -23,13 +23,13 @@ public:
         const ProposalID& promisedID);
     void resendAccept();
 
-    std::string getProposerUID();
-    int getQuorumSize();
-    ProposalID getProposalID();
+    std::string getProposerUID() const;
+    size_t getQuorumSize();
+    ProposalID getProposalID() const;
     std::string getProposedValue();
     ProposalID getLastAcceptedID();
     int numPromises();
-	bool isLeader();
+	bool isLeader() const;
 	void setLeader(bool leader);
 	bool isActive();
 	void setActive(bool active);
@@ -39,7 +39,7 @@ private:
     //Proposer的UID
     std::string m_proposerUID;
     //达成一致要求的最小Acceptor数量
-    int m_quorumSize;
+    size_t m_quorumSize;
 
     //提出议题的编号
     ProposalID m_proposalID;

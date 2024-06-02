@@ -30,12 +30,12 @@ public:
 	
 	//尝试成为leader
 	virtual void onLeadershipAcquired() = 0;
-	//失去leader权限
+	//自己失去leader权限
 	virtual void onLeadershipLost() = 0;
-	//leader发生变更
+	//leadership发生变更，UID或者proposalID只要发生变更都可以认为leadership发生变更
 	virtual void onLeadershipChange(const std::string& previousLeaderUID, 
 		const std::string& newLeaderUID) = 0;
 	
 	//发送心跳
-	virtual void sendHeartbeat(const ProposalID& leaderProposalID) = 0;
+	virtual void sendHeartbeat(const std::string& leaderUID, const ProposalID& leaderProposalID) = 0;
 };

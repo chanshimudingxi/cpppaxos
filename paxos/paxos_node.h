@@ -14,6 +14,9 @@ public:
 		int livenessWindow, std::string leaderUID = "");
 	~PaxosNode();
 
+	ProposalID getMyProposalID() const;
+	bool isLeader()  const;
+	
 	bool isActive();
 	void setActive(bool active);
 	std::string getLeaderUID();
@@ -53,7 +56,7 @@ private:
 	//心跳超时时间
 	uint64_t   	m_heartbeatTimeout;
 
-	//是否需要向集群中其他节点发送自己成为leader的消息
+	//是否需要向集群索要最新的leadership
 	bool	m_acquiringLeadership;
 	std::set<std::string>	m_acceptNACKs;
 };

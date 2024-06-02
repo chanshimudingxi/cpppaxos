@@ -28,6 +28,7 @@ class Server : public Messenger, deps::PacketHandler, std::enable_shared_from_th
 public:
     Server(const std::string& myid, int quorumSize);
     ~Server();
+
 	bool Init(deps::SocketType type, const std::string& localIP, uint16_t localPort, 
 		const std::string& dstIP, uint16_t dstPort);
 	bool Run();
@@ -40,16 +41,26 @@ public:
 	void SendMessageToPeer(uint16_t cmd, const deps::Marshallable& msg, PeerAddr& addr);
 	void SendMessageToAllPeer(uint16_t cmd, const deps::Marshallable& msg);
 
+	/****************************集群网络结构信息************************/
 	//获取本地地址
 	PeerInfo GetMyNodeInfo();
+	//节点加入集群
 	bool AddPeerInfo(std::string peerId, const PeerAddr& peerAddr);
+	//更新节点信息
 	void UpdatePeerInfo(std::string peerId, uint64_t rtt);
+	//删除节点
 	void RemovePeerInfo(std::string peerId);
+	//更新稳定节点信息
 	void updateStablePeers(std::string peerId, const PeerAddr& addr);
+	
+	//处理ping消息
 	bool HandlePingMessage(const deps::PacketHeader& header, std::shared_ptr<PingMessage> pMsg, deps::SocketBase* s);
+	//处理pong消息
 	bool HandlePongMessage(const deps::PacketHeader& header, std::shared_ptr<PongMessage> pMsg, deps::SocketBase* s);
+	//发送心跳消息
 	void SendPingMessage();
-	//paxos协议
+	
+	/************************************paxos******************************/
 	//处理心跳消息
 	bool HandleHeatBeatMessage(const deps::PacketHeader& header, std::shared_ptr<HeartbeatMessage> pMsg, deps::SocketBase* s);
 
@@ -85,7 +96,9 @@ public:
 	virtual void onLeadershipChange(const std::string& previousLeaderUID, 
 		const std::string& newLeaderUID);
 	//发送心跳
-	virtual void sendHeartbeat(const ProposalID& leaderProposalID);
+	virtual void sendHeartbeat(const std::string& leaderUID, const ProposalID& leaderProposalID);
+private:
+	void dumpStatus();
 private:
 	//连接管理容器
 	deps::EpollContainer* m_container;

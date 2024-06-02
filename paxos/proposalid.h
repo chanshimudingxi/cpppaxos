@@ -27,7 +27,8 @@ public:
 	bool operator==(const ProposalID& id) const;
 	bool operator>(const ProposalID& id) const;
 	bool operator!=(const ProposalID& id) const;
-
+    bool operator<=(const ProposalID& id) const;
+    bool operator>=(const ProposalID& id) const;
     void marshal(deps::Pack & pk) const;
     void unmarshal(const deps::Unpack &up);
 public:

@@ -151,7 +151,7 @@ void Proposer::receiveAcceptNACK(const std::string& fromUID,
  * 
  * @return 协议号
  */
-std::string Proposer::getProposerUID() 
+std::string Proposer::getProposerUID() const
 {
     return m_proposerUID;
 }
@@ -162,7 +162,7 @@ std::string Proposer::getProposerUID()
  * @return "大多数"的值 
  */
 
-int Proposer::getQuorumSize() 
+size_t Proposer::getQuorumSize() 
 {
     return m_quorumSize;
 }
@@ -172,7 +172,7 @@ int Proposer::getQuorumSize()
  * 
  * @return 协议号ID 
  */
-ProposalID Proposer::getProposalID() 
+ProposalID Proposer::getProposalID() const
 {
     return m_proposalID;
 }
@@ -236,7 +236,7 @@ void Proposer::resendAccept()
  * @brief 自己是否为Proposer的leader，只有leader才能提出议题
  * 
  */
-bool Proposer::isLeader() 
+bool Proposer::isLeader() const
 {
 	return m_leader;
 }

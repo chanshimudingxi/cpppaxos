@@ -13,12 +13,20 @@ Server::Server(const std::string& myid, int quorumSize):
 
 	m_timerManager.addTimer(5000, std::bind(&Server::SendPingMessage, this));
 	m_timerManager.addTimer(10000, std::bind(&PaxosNode::pulse, m_paxosNode));
+	m_timerManager.addTimer(2000, std::bind(&Server::dumpStatus, this));
 }
 
 Server::~Server(){
 	if(nullptr != m_container){
 		delete m_container;
 	}
+}
+
+void Server::dumpStatus(){
+	bool isLeader = m_paxosNode.isLeader();
+	LOG_INFO("local uid:%s proposalid:%s isLeader:%d leader uid:%s proposalid:%s", 
+		m_myUID.c_str(), m_paxosNode.getMyProposalID().toString().c_str(), isLeader,
+		m_paxosNode.getLeaderUID().c_str(),	m_paxosNode.getLeaderProposalID().toString().c_str());
 }
 
 bool Server::Init(deps::SocketType type, const std::string& localIP, uint16_t localPort, 
@@ -97,7 +105,7 @@ int Server::HandlePacket(const char* data, size_t size, deps::SocketBase* s){
         return -1;
     }
 	uint16_t subCmd = deps::Decoder::pickSubCmd(data);
-	LOG_DEBUG("unpack:\n%s", deps::DumpHex(data, packetSize).c_str());
+	LOG_TRACE("unpack:\n%s", deps::DumpHex(data, packetSize).c_str());
 
 	std::shared_ptr<deps::Marshallable> pMsg;
 	switch (subCmd){
@@ -200,6 +208,9 @@ bool Server::HandleMessage(const deps::PacketHeader& header, std::shared_ptr<dep
 	return ret;
 }
 
+/**
+ * @brief 获取本地地址
+*/
 PeerInfo Server::GetMyNodeInfo(){
 	PeerInfo p;
 	p.m_addr.m_ip = m_localIP;
@@ -210,14 +221,22 @@ PeerInfo Server::GetMyNodeInfo(){
 }
 
 /**
- * 同一个peer id的只允许一个地址，并且采取先到先得的原则
+ * @brief 同一个peer id的只允许一个地址，并且采取先到先得的原则
 */
 bool Server::AddPeerInfo(std::string peerId, const PeerAddr& addr){
+	if(peerId.empty()){
+		LOG_ERROR("peer id is empty");
+		return false;
+	}
+	else if(peerId == m_myUID){
+		return false;
+	}
+
 	auto itr = m_peers.find(peerId);
 	if(itr != m_peers.end()){
 		PeerInfo& peer = itr->second;
 		if(peer.m_addr != addr){
-			LOG_ERROR("peer %s addr %s already exist %s", 
+			LOG_ERROR("peer id:%s already exist but addr %s not match %s", 
 				peerId.c_str(), addr.toString().c_str(), 
 				peer.m_addr.toString().c_str());
 			return false;
@@ -233,6 +252,9 @@ bool Server::AddPeerInfo(std::string peerId, const PeerAddr& addr){
 	return true;
 }
 
+/**
+ * @brief 更新节点信息
+*/
 void Server::UpdatePeerInfo(std::string peerId, uint64_t rtt){
 	auto itr = m_peers.find(peerId);
 	if(itr != m_peers.end()){
@@ -241,11 +263,16 @@ void Server::UpdatePeerInfo(std::string peerId, uint64_t rtt){
 	}
 }
 
+/**
+ * @brief 删除节点
+*/
 void Server::RemovePeerInfo(std::string peerId){
 	m_peers.erase(peerId);
 }
 
-
+/**
+ * @brief 同一个peer id的只允许一个地址，并且采取先到先得的原则
+*/
 void Server::updateStablePeers(std::string peerId, const PeerAddr& addr)
 {
 	for(size_t i = 0; i < m_stablePeers.size(); ++i){
@@ -255,15 +282,20 @@ void Server::updateStablePeers(std::string peerId, const PeerAddr& addr)
 	}
 }
 
+/**
+ * @brief 处理ping消息
+*/
 bool Server::HandlePingMessage(const deps::PacketHeader& header, std::shared_ptr<PingMessage> pMsg, deps::SocketBase* s){
 	const std::string& peerId = pMsg->m_myInfo.m_id;
 	const PeerAddr& peerAddr = pMsg->m_myInfo.m_addr;
-	LOG_INFO("peer id:%s %s", peerId.c_str(), peerAddr.toString().c_str());
+	LOG_INFO("peer id:%s %s size:%zd", peerId.c_str(), peerAddr.toString().c_str(), pMsg->m_peers.size());
 
-	if(!AddPeerInfo(peerId, peerAddr)){
-		LOG_ERROR("set peer addr failed. peerid:%s %s", 
-			peerId.c_str(), peerAddr.toString().c_str());
-		return false;
+	//添加发送者信息到peer集合
+	AddPeerInfo(peerId, peerAddr);
+
+	//添加携带的peer信息到peer集合
+	for(auto peer : pMsg->m_peers){
+		AddPeerInfo(peer.m_id, peer.m_addr);
 	}
 
 	PongMessage rsp;
@@ -274,6 +306,9 @@ bool Server::HandlePingMessage(const deps::PacketHeader& header, std::shared_ptr
 	return true;
 }
 
+/**
+ * @brief 处理pong消息
+*/
 bool Server::HandlePongMessage(const deps::PacketHeader& header, std::shared_ptr<PongMessage> pMsg, deps::SocketBase* s){
 	uint64_t lastStamp = pMsg->m_timestamp;
 	uint64_t now = deps::GetMonoTimeMs();
@@ -282,31 +317,28 @@ bool Server::HandlePongMessage(const deps::PacketHeader& header, std::shared_ptr
 	PeerAddr& peerAddr = pMsg->m_myInfo.m_addr;
 	LOG_INFO("peer id:%s %s rtt:%lu", peerId.c_str(), peerAddr.toString().c_str(), rtt);
 
-	if(!AddPeerInfo(peerId, peerAddr)){
-		LOG_INFO("set peer addr failed. peerid:%s %s rtt:%lu(ms)", 
-			peerId.c_str(), peerAddr.toString().c_str(), rtt);
-		return false;
-	}
 	UpdatePeerInfo(peerId, rtt);
 	return true;
 }
 
+/**
+ * @brief 处理心跳消息
+*/
 bool Server::HandleHeatBeatMessage(const deps::PacketHeader& header, std::shared_ptr<HeartbeatMessage> pMsg, deps::SocketBase* s){
 	const std::string& peerId = pMsg->m_myInfo.m_id;
 	const PeerAddr& peerAddr = pMsg->m_myInfo.m_addr;
+	const std::string& leaderUID = pMsg->m_leaderUID;
 	const ProposalID& leaderProposalID = pMsg->m_leaderProposalID;
 	LOG_INFO("peer id:%s %s %s", peerId.c_str(), peerAddr.toString().c_str(), 
 		leaderProposalID.toString().c_str());
 
-	if(!AddPeerInfo(peerId, peerAddr)){
-		LOG_ERROR("set peer addr failed. peerid:%s %s", 
-			peerId.c_str(), peerAddr.toString().c_str());
-		return false;
-	}
-	m_paxosNode.receiveHeartbeat(peerId, leaderProposalID);
+	m_paxosNode.receiveHeartbeat(leaderUID, leaderProposalID);
 	return true;
 }
 
+/**
+ * @brief 连接到指定的ip和端口
+*/
 deps::SocketBase* Server::Connect(uint32_t ip, int port, deps::SocketType type){
 	deps::SocketBase* pSocket = nullptr;
 	switch(type){
@@ -322,7 +354,9 @@ deps::SocketBase* Server::Connect(uint32_t ip, int port, deps::SocketType type){
 	return pSocket;
 }
 
-//发送ping消息
+/**
+ * @brief 发送ping消息
+*/
 void Server::SendPingMessage()
 {
 	PingMessage ping;
@@ -332,9 +366,12 @@ void Server::SendPingMessage()
 		ping.m_peers.insert(peer.second);
 	}
 	SendMessageToAllPeer(PingMessage::cmd, ping);
-	LOG_INFO("send ping message timestamp:%lu", ping.m_timestamp);
+	LOG_INFO("send ping message timestamp:%lu size:%zd", ping.m_timestamp, ping.m_peers.size());
 }
 
+/**
+ * @brief 发送消息给指定的socket
+*/
 bool Server::SendMessage(uint16_t cmd, const deps::Marshallable& msg, deps::SocketBase* s){
 	deps::Encoder encoder;
 	encoder.serialize(cmd, msg);
@@ -345,6 +382,9 @@ bool Server::SendMessage(uint16_t cmd, const deps::Marshallable& msg, deps::Sock
 	return true;
 }
 
+/**
+ * @brief 发送消息给指定的peer
+*/
 void Server::SendMessageToPeer(uint16_t cmd, const deps::Marshallable& msg, PeerAddr& addr){
 	auto itr = m_addr2socket.find(addr);
 	if(itr == m_addr2socket.end()){
@@ -360,10 +400,9 @@ void Server::SendMessageToPeer(uint16_t cmd, const deps::Marshallable& msg, Peer
 		deps::SocketBase* pSocket = itr->second;
 		if(nullptr == pSocket){
 			LOG_ERROR("%s get null socket", addr.toString().c_str());
+			return;
 		}
-		else{
-			SendMessage(cmd, msg, pSocket);
-		}
+		SendMessage(cmd, msg, pSocket);
 	}
 }
 
@@ -375,7 +414,7 @@ void Server::SendMessageToAllPeer(uint16_t cmd, const deps::Marshallable& msg){
 		const std::string& peerid = itr->first;
 		PeerInfo& peer = itr->second;
 		SendMessageToPeer(cmd, msg, peer.m_addr);
-		LOG_DEBUG("send message cmd:%hu to peer %s %s", cmd, peerid.c_str(), peer.m_addr.toString().c_str());
+		LOG_DEBUG("send message cmd:%hu to peer id:%s %s", cmd, peerid.c_str(), peer.m_addr.toString().c_str());
 	}
 
 	for(size_t i=0; i < m_stablePeers.size(); ++i){
@@ -463,7 +502,7 @@ void Server::sendPromise(const std::string& toUID, const ProposalID& proposalID,
 		SendMessageToPeer(PromiseMessage::cmd, promise, peer.m_addr);
 	}
 	else{
-		LOG_ERROR("peer %s not found", toUID.c_str());
+		LOG_ERROR("peer id:%s not found", toUID.c_str());
 	}
 }
 
@@ -575,32 +614,42 @@ void Server::sendAcceptNACK(const std::string& proposerUID, const ProposalID& pr
 
 }
 
-//尝试获取leader
+/**
+ * @brief 尝试获取leader
+*/
 void Server::onLeadershipAcquired()
 {
 
 }
 
-//丢失leader
+/**
+ * @brief 丢失leader
+*/
 void Server::onLeadershipLost()
 {
 
 }
 
-//leader变更
+/**
+ * @brief leader变更
+*/
 void Server::onLeadershipChange(const std::string& previousLeaderUID, 
 	const std::string& newLeaderUID)
 {
 
 }
 
-//发送心跳
-void Server::sendHeartbeat(const ProposalID& leaderProposalID)
+/**
+ * @brief 发送心跳
+*/
+void Server::sendHeartbeat(const std::string& leaderUID, const ProposalID& leaderProposalID)
 {	
 	HeartbeatMessage heartbeat;
 	heartbeat.m_myInfo = GetMyNodeInfo();
+	heartbeat.m_leaderUID = leaderUID;
 	heartbeat.m_leaderProposalID.m_number = leaderProposalID.m_number;
 	heartbeat.m_leaderProposalID.m_uid = leaderProposalID.m_uid;
 	SendMessageToAllPeer(HeartbeatMessage::cmd, heartbeat);
-	LOG_INFO("send heartbeat message %s", heartbeat.m_leaderProposalID.toString().c_str());
+	LOG_INFO("send heartbeat message leader uid:%s proposalid:%s", 
+		leaderUID.c_str(), leaderProposalID.toString().c_str());
 }

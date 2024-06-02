@@ -46,13 +46,13 @@ void ProposalID::incrementNumber()
 std::string ProposalID::toString() const
 {
     std::string dumpstr;
-    dumpstr.append("proposalid:").append(m_uid).append("_").append(std::to_string(m_number));
+    dumpstr.append(std::to_string(m_number).append("_").append(m_uid));
     return dumpstr;
 }
 
 int ProposalID::compare(const ProposalID& id) const
 {
-    if(m_uid > id.m_uid || (m_uid == id.m_uid && m_number > id.m_number) )
+    if(m_number > id.m_number|| (m_number == id.m_number && m_uid > id.m_uid ) )
     {
         return 1;
     }
@@ -86,6 +86,13 @@ bool ProposalID::operator!=(const ProposalID& id) const
 	return this->compare(id) != 0;
 }
 
+bool ProposalID::operator<=(const ProposalID& id) const{
+    return *this < id || *this == id;
+}
+
+bool ProposalID::operator>=(const ProposalID& id) const{
+    return *this > id || *this == id;
+}
 
 void ProposalID::marshal(deps::Pack & pk) const{
     pk << m_number << m_uid;

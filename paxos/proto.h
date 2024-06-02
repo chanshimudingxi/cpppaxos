@@ -57,14 +57,15 @@ struct PongMessage : public deps::Marshallable{
 struct HeartbeatMessage : public deps::Marshallable{
 	enum{cmd = PAXOS_PROTO_HEARTBEAT_MESSAGE};
 	PeerInfo m_myInfo;
+	std::string m_leaderUID;
 	ProposalID m_leaderProposalID;
 
 	virtual void marshal(deps::Pack & pk) const{
-		pk << m_myInfo << m_leaderProposalID;
+		pk << m_myInfo << m_leaderUID << m_leaderProposalID;
 	}
 
 	virtual void unmarshal(const deps::Unpack &up){
-		up >> m_myInfo >> m_leaderProposalID;
+		up >> m_myInfo >> m_leaderUID >> m_leaderProposalID;
 	}
 };
 
