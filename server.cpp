@@ -32,9 +32,6 @@ void Server::dumpStatus(){
 bool Server::Init(deps::SocketType type, const std::string& localIP, uint16_t localPort, 
 		const std::string& dstIP, uint16_t dstPort){
 
-    if(!m_container->Init()){
-        return false;
-    }
 	m_localIP = inet_addr(localIP.c_str());
 	m_localPort = localPort;
 	m_socketType = type;
