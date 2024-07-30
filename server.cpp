@@ -92,15 +92,6 @@ int Server::HandlePacket(const char* data, size_t size, deps::SocketBase* s){
         return 0;
     }
     uint32_t seq = deps::Decoder::pickSeq(data);
-	uint16_t subLen = deps::Decoder::pickSubLen(data);
-	if(subLen > deps::Decoder::maxSize()){
-		LOG_ERROR("packet seq:%u size:%u subsize:%u exceed limit:%zd", seq, packetSize, subLen, deps::Decoder::maxSize());
-        return -1;
-    }
-    if(subLen + deps::Decoder::mainHeaderSize() > size){
-		LOG_ERROR("packet seq:%u size:%u subsize:%u recv len:%zd too short", seq, packetSize, subLen, size);
-        return -1;
-    }
 	uint16_t subCmd = deps::Decoder::pickSubCmd(data);
 	LOG_TRACE("unpack:\n%s", deps::DumpHex(data, packetSize).c_str());
 
