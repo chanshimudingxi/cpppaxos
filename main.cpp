@@ -33,8 +33,8 @@ int set_openfd_limit(unsigned long limitSize){
 		return -1;
 	}
 
-	LOG_INFO("set open files old limit: %lu:%lu to limit: %lu:%lu success", 
-		oldlimit, oldlimitmax, limitSize, limitSize);
+	LOG_INFO("set open files old limit: %llu:%llu to limit: %llu:%llu success", 
+		(uint64_t)oldlimit, (uint64_t)oldlimitmax, (uint64_t)limitSize, (uint64_t)limitSize);
 	return 0;
 }
 

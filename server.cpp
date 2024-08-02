@@ -303,7 +303,7 @@ bool Server::HandlePongMessage(const deps::PacketHeader& header, std::shared_ptr
 	uint64_t rtt = now > lastStamp ? now - lastStamp : 0;
 	const std::string& peerId = pMsg->m_myInfo.m_id;
 	PeerAddr& peerAddr = pMsg->m_myInfo.m_addr;
-	LOG_INFO("peer id:%s %s rtt:%lu", peerId.c_str(), peerAddr.toString().c_str(), rtt);
+	LOG_INFO("peer id:%s %s rtt:%llu", peerId.c_str(), peerAddr.toString().c_str(), rtt);
 
 	UpdatePeerInfo(peerId, rtt);
 	return true;
@@ -354,7 +354,7 @@ void Server::SendPingMessage()
 		ping.m_peers.insert(peer.second);
 	}
 	SendMessageToAllPeer(PingMessage::cmd, ping);
-	LOG_INFO("send ping message timestamp:%lu size:%zd", ping.m_timestamp, ping.m_peers.size());
+	LOG_INFO("send ping message timestamp:%llu size:%zd", ping.m_timestamp, ping.m_peers.size());
 }
 
 /**
